@@ -18,14 +18,12 @@ GPU step can run on another host with only staging/ + cas/ rsynced over.
              mined slice (never MMEB's bundled negatives — documented too
              easy) -> cards-v2.jsonl (validator sample gate FIRST, then
              bulk) -> exposures (lanes image2text + text2image).
-  pack       CPU. WebDataset shards: sample JSON + referenced media
-             co-packed per CARD-SPEC storage rules, MANIFEST.jsonl +
-             SHA256SUMS, deterministic shuffle, full re-read verify.
-
-Sample format (WDS, members share the zero-padded key):
-  <key>.json           exposure + "resolved" {card/view -> content[]} +
-                       "media" {cas://sha -> member name}
-  <key>.<n>.jpg        each unique image referenced by the sample
+  pack       CPU. Shards per the v2 FORMAT CONTRACT (../shards_v2.py):
+             materialized content arrays, media co-packed as
+             member://<sha16>.jpg tar members, .idx.json sidecar per tar,
+             MANIFEST.jsonl + SHA256SUMS, deterministic shuffle, then a
+             full re-hash + contract-reader (ExposureStore/materialize)
+             verify pass.
 
 Env (defaults = live paths):
   SRC_MMEB   /pool-6b/corpus-acq/work/mmeb_train/snapshot   (READ-ONLY)
@@ -45,7 +43,6 @@ import os
 import random
 import subprocess
 import sys
-import tarfile
 import time
 import zipfile
 
@@ -382,7 +379,7 @@ def cmd_mine() -> None:
 
     # ---- validator sample gate (>=250 through the CLI) BEFORE bulk ----
     rng = random.Random(SEED)
-    sample = rng.sample(cards, 250)
+    sample = rng.sample(cards, min(250, len(cards)))
     spath = os.path.join(OUT_ROOT, "sample-validate.jsonl")
     known = os.path.join(OUT_ROOT, "known-ids.txt")
     with open(spath, "w") as f:
@@ -466,6 +463,13 @@ def cmd_mine() -> None:
 # ------------------------------------------------------------------ pack ---
 
 def cmd_pack() -> None:
+    """Pack to the v2 FORMAT CONTRACT (shards_v2.py, TRAINER 22:48Z):
+    materialized content arrays, media as member://<sha16>.jpg tar members,
+    .idx.json sidecar per shard (rsynced ALONGSIDE the tars)."""
+    sys.path.insert(0, os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))
+    import shards_v2
+
     cards = {}
     for line in open(os.path.join(OUT_ROOT, "cards-v2.jsonl")):
         c = json.loads(line)
@@ -474,10 +478,30 @@ def cmd_pack() -> None:
     for lane in ("image2text", "text2image"):
         path = os.path.join(OUT_ROOT, f"exposures-{lane}-v001.jsonl")
         exposures += [json.loads(l) for l in open(path)]
-    log(f"pack: {len(exposures)} exposures over {len(cards)} cards")
+    log(f"pack: {len(exposures)} exposures over {len(cards)} cards "
+        f"(format {shards_v2.FORMAT})")
 
     random.Random(SEED).shuffle(exposures)  # same-card runs would poison
     # in-batch negatives for sequential readers
+
+    neg_modality = {"image2text": "text", "text2image": "image"}
+
+    def entry(ref: dict, media: dict, extra: dict | None = None) -> dict:
+        """{card, view} ref -> contract entry with materialized content."""
+        card = cards[ref["card"]]
+        content = []
+        for item in card["views"][ref["view"]]["content"]:
+            if item["type"] == "image":
+                with open(cas_path(item["image"][6:]), "rb") as f:
+                    data = f.read()
+                mname = shards_v2.media_name(data, "jpg")
+                media[mname] = data
+                content.append({"type": "image",
+                                "image": f"member://{mname}"})
+            else:
+                content.append(item)
+        return {"card": ref["card"], "view": ref["view"],
+                "content": content, **(extra or {})}
 
     os.makedirs(os.path.join(OUT_ROOT, "shards"), exist_ok=True)
     manifest = []
@@ -486,38 +510,31 @@ def cmd_pack() -> None:
         chunk = exposures[s0:s0 + SHARD_SIZE]
         name = f"image-v001-{s0 // SHARD_SIZE:06d}.tar"
         path = os.path.join(OUT_ROOT, "shards", name)
-        with tarfile.open(path, "w", format=tarfile.USTAR_FORMAT) as tf:
-            for j, e in enumerate(chunk):
-                key = f"{s0 + j:08d}"
-                refs = [e["anchor"], e["positive"], *e["negatives"]]
-                resolved, media = {}, {}
-                for ref in refs:
-                    c = cards[ref["card"]]
-                    content = c["views"][ref["view"]]["content"]
-                    resolved[f"{ref['card']}/{ref['view']}"] = content
-                    for item in content:
-                        if item["type"] == "image":
-                            media[item["image"]] = None
-                for m_i, cas_ref in enumerate(sorted(media)):
-                    member = f"{key}.{m_i}.jpg"
-                    media[cas_ref] = member
-                    with open(cas_path(cas_ref[6:]), "rb") as f:
-                        data = f.read()
-                    ti = tarfile.TarInfo(name=member)
-                    ti.size, ti.mtime, ti.uid, ti.gid = len(data), 0, 0, 0
-                    tf.addfile(ti, io.BytesIO(data))
-                    n_media_members += 1
-                sample = {**e, "resolved": resolved, "media": media}
-                data = json.dumps(sample, ensure_ascii=False).encode()
-                ti = tarfile.TarInfo(name=f"{key}.json")
-                ti.size, ti.mtime, ti.uid, ti.gid = len(data), 0, 0, 0
-                tf.addfile(ti, io.BytesIO(data))
+        w = shards_v2.ShardWriter(path)
+        for j, e in enumerate(chunk):
+            key = f"{s0 + j:08d}"
+            media: dict[str, bytes] = {}
+            card_negs = cards[e["anchor"]["card"]].get(
+                "negatives", {}).get(neg_modality[e["lane"]], [])
+            negs = []
+            for ref, cn in zip(e["negatives"], card_negs):
+                assert cn["card_id"] == ref["card"], f"{key}: neg order drift"
+                negs.append(entry(ref, media,
+                                  {"miner": cn["miner"], "sim": cn["sim"],
+                                   "band_rule": cn["band_rule"]}))
+            exposure = {"lane": e["lane"], "instruction": e["instruction"],
+                        "anchor": entry(e["anchor"], media),
+                        "positive": entry(e["positive"], media),
+                        "negatives": negs}
+            w.add(key, exposure, media)
+            n_media_members += len(media)
+        w.close()  # renames .tmp -> .tar and writes <tar>.idx.json
         h = hashlib.sha256()
         with open(path, "rb") as f:
             for blk in iter(lambda: f.read(1 << 20), b""):
                 h.update(blk)
-        manifest.append({"shard": name, "sha256": h.hexdigest(),
-                         "samples": len(chunk),
+        manifest.append({"shard": name, "idx": name + ".idx.json",
+                         "sha256": h.hexdigest(), "samples": len(chunk),
                          "bytes": os.path.getsize(path),
                          "first_key": f"{s0:08d}",
                          "last_key": f"{s0 + len(chunk) - 1:08d}"})
@@ -530,8 +547,12 @@ def cmd_pack() -> None:
     with open(os.path.join(OUT_ROOT, "shards", "SHA256SUMS"), "w") as f:
         for m in manifest:
             f.write(f"{m['sha256']}  {m['shard']}\n")
+            h = hashlib.sha256(open(os.path.join(
+                OUT_ROOT, "shards", m["idx"]), "rb").read()).hexdigest()
+            f.write(f"{h}  {m['idx']}\n")
 
-    # verify: re-hash every tar + decode first/last sample + media present
+    # verify: re-hash every tar vs manifest + reader-path spot checks via
+    # the contract reader (ExposureStore + materialize on first/last key)
     for m in manifest:
         path = os.path.join(OUT_ROOT, "shards", m["shard"])
         h = hashlib.sha256()
@@ -539,22 +560,21 @@ def cmd_pack() -> None:
             for blk in iter(lambda: f.read(1 << 20), b""):
                 h.update(blk)
         assert h.hexdigest() == m["sha256"], f"{m['shard']}: sha mismatch"
-        with tarfile.open(path) as tf:
-            names = tf.getnames()
-            jnames = sorted(x for x in names if x.endswith(".json"))
-            assert len(jnames) == m["samples"], f"{m['shard']}: sample count"
-            for member in (jnames[0], jnames[-1]):
-                s = json.load(tf.extractfile(member))
-                assert s["lane"] in ("image2text", "text2image")
-                nameset = set(names)
-                for ref in [s["anchor"], s["positive"], *s["negatives"]]:
-                    key = f"{ref['card']}/{ref['view']}"
-                    for item in s["resolved"][key]:
-                        if item["type"] == "image":
-                            assert s["media"][item["image"]] in nameset
-                        else:
-                            assert item["text"]
-    log(f"verify: {len(manifest)} shard(s) re-hashed + spot-decoded — PASS")
+    store = shards_v2.ExposureStore(
+        [os.path.join(OUT_ROOT, "shards", m["shard"]) for m in manifest])
+    counts = store.counts()
+    assert sum(counts.values()) == len(exposures), f"reader count {counts}"
+    for i, m in enumerate(manifest):
+        for key in (m["first_key"], m["last_key"]):
+            e, media = store.get(i, key)
+            assert e["lane"] in ("image2text", "text2image")
+            for ref in [e["anchor"], e["positive"], *e["negatives"]]:
+                mat = shards_v2.materialize(ref["content"], media)
+                assert mat and all(
+                    (it["type"] == "text" and it["text"]) or
+                    it["type"] == "image" for it in mat)
+    log(f"verify: {len(manifest)} shard(s) re-hashed + reader-path "
+        f"materialize spot-checks — PASS; lane counts {counts}")
 
     calib = json.load(open(staging("mine-report.json")))
     enc = json.load(open(staging("encode-meta.json")))
@@ -573,9 +593,9 @@ def cmd_pack() -> None:
         "shuffle_seed": SEED,
         "total_bytes": sum(m["bytes"] for m in manifest),
         "media_members": n_media_members,
-        "sample_format": "exposure + resolved{card/view: content[]} + "
-                         "media{cas://sha: tar member}; images co-packed "
-                         "per sample as <key>.<n>.jpg",
+        "sample_format": "fluffy-exposure-shard-v1 (shards_v2.py contract): "
+                         "materialized content, member://<sha16>.jpg media, "
+                         ".idx.json sidecar per tar",
         "rights": "source_audit_required, audit=pending (SIGNOFF-001: "
                   "training OK, release gated)",
         "elapsed_s": round(time.time() - t0, 1),
