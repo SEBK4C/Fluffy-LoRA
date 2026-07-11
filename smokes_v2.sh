@@ -27,7 +27,9 @@ export CUDA_VISIBLE_DEVICES="$GPUS"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export FL_SHARDS
 
-common=(FL_BATCH=4 FL_ACCUM=1 FL_LOG_EVERY=1)
+# ENC_CHUNK=8: the smoke mix includes 30s-audio + interleaved lanes whose
+# 758+ token sequences OOM eager attention at larger per-forward chunks.
+common=(FL_BATCH=4 FL_ACCUM=1 FL_LOG_EVERY=1 FL_ENC_CHUNK=8)
 # smoke shard carries ALL lanes incl. audio + interleaved — smokes prove the
 # full path; the real stage-1 launch config is text+image only (FL_LANES).
 ALL_LANES="text2text=0.35,image2text=0.15,text2image=0.15,audio2text=0.10,text2audio=0.10,interleaved2text=0.15"

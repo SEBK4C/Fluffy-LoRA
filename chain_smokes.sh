@@ -7,11 +7,19 @@ set -uo pipefail
 
 SOLO="${1:?solo gpu id}"
 DDP="${2:?ddp gpu ids}"
+FROM="${3:-a1}"   # skip already-passed phases: a1|a4|a3|steptime|resume|a6
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${FL_SHARDS:?}" ; : "${FL_OUT_BASE:?}"
 mkdir -p "$FL_OUT_BASE"
 LOG="$FL_OUT_BASE/chain.log"
 say() { echo "[$(date -u +%H:%M:%SZ)] CHAIN: $*" | tee -a "$LOG"; }
+reached() { # phase order gate
+  local order="a1 a4 a3 steptime resume a6" seen=0 p
+  for p in $order; do
+    [ "$p" = "$FROM" ] && seen=1
+    [ "$p" = "$1" ] && { [ "$seen" = 1 ] && return 0 || return 1; }
+  done; return 1
+}
 
 phase() { # phase <mode> <gpus>
   local mode="$1" gpus="$2" plog="$FL_OUT_BASE/$1.log"
@@ -23,13 +31,13 @@ phase() { # phase <mode> <gpus>
   fi
 }
 
-say "chain start: shards=$FL_SHARDS out=$FL_OUT_BASE"
-phase a1 "$SOLO"
-phase a4 "$SOLO"
-phase a3 "$SOLO"
-phase steptime "$SOLO"
+say "chain start: shards=$FL_SHARDS out=$FL_OUT_BASE from=$FROM"
+for m in a1 a4 a3 steptime; do
+  if reached "$m"; then phase "$m" "$SOLO"; else say "$m SKIPPED (from=$FROM)"; fi
+done
 
 # --- kill -9 resume test (MANDATORY swap gate) ------------------------------
+run_resume() {
 RLA="$FL_OUT_BASE/resume-a.log" ; RLB="$FL_OUT_BASE/resume-b.log"
 say "resume-a launching; will kill -9 at ~step 55 (ckpt every 25)"
 "$DIR/smokes_v2.sh" "$SOLO" resume-a >"$RLA" 2>&1 &
@@ -72,9 +80,13 @@ print(f"  {ck.name}: cursors={st['cursors']} loss_ema={st['loss_ema']:.4f}")
 PY
 say "retention after resume-b (expect pruned set incl. 12h-bucket + last3):"
 ls "$FL_OUT_BASE/resume" | tee -a "$LOG"
+}
+if reached resume; then run_resume; else say "resume SKIPPED (from=$FROM)"; fi
 
 # --- A6: 20-step DDP world=2 (needs BOTH gpus free) -------------------------
-if nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; then
+if ! reached a6; then
+  say "a6 SKIPPED (from=$FROM)"
+elif nvidia-smi --query-compute-apps=pid --format=csv,noheader | grep -q .; then
   say "A6 SKIPPED — another process holds a GPU; run './smokes_v2.sh $DDP a6' when free"
 else
   phase a6 "$DDP"

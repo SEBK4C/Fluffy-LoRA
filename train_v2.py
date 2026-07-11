@@ -95,7 +95,13 @@ NEG_GRAD = os.environ.get("FL_NEG_GRAD", "1") == "1"  # backprop through negativ
 MRL = os.environ.get("FL_MRL", "native,2048,1024,512,256")
 INSTRUCT = os.environ.get("FL_INSTRUCT", "1") == "1"  # expected ON (§2D)
 MAXCHARS = int(os.environ.get("FL_MAXCHARS", "2000")) # text clip (chars, pre-tokenizer)
-ENC_CHUNK = int(os.environ.get("FL_ENC_CHUNK", "32"))
+# Per-forward sub-batch cap. Bounds TRANSIENT memory (eager-attention
+# weights scale as chunk*heads*L^2 — 758-token audio-negative batches at
+# chunk=32 OOMed a 24 GB card in the steptime smoke; image seqs are only
+# ~274 tokens so A3 passed at B=16). Boundary activations are unaffected
+# (fixed total under grad-ckpt). Audio lanes at the day-2/3 refresh:
+# re-derive with FL_ENC_CHUNK<=8.
+ENC_CHUNK = int(os.environ.get("FL_ENC_CHUNK", "16"))
 STEPS_ENV = os.environ.get("FL_STEPS", "")
 HORIZON_H = float(os.environ.get("FL_HORIZON_H", "312"))   # 13 days
 STEP_SECS = os.environ.get("FL_STEP_SECS", "")             # measured (A6)
