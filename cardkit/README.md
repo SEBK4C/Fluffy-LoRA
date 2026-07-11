@@ -13,6 +13,8 @@ services; nothing is aspirational.
 | `build_golden.py` | Builds the 15 golden cards (3 per §E source) with every generation gate run live, reject-and-advance on gate failure. |
 | `tokenize_cards.py` | The reference collate: resolves `cas://` refs and feeds every view through `processor.apply_chat_template`. If this is green, the format works. |
 | `example_card.json` | One real golden card (`flf-g001`, fully tri-modal, self-synthetic rights — the only rights tier committable here). |
+| `supertonic_pilot.py` | v1.1: Supertonic-3 (PRIMARY TTS) pass-rate check over the same stratified pilot texts, frozen A3 gate unchanged. |
+| `make_spotcheck.py` | Stratified eyeball sample as one self-contained HTML (media embedded); output never committed. |
 
 ## Environment
 

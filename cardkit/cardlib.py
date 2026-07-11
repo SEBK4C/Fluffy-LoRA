@@ -86,7 +86,7 @@ def wav_info(path: str) -> dict:
 # --- generators -----------------------------------------------------------
 
 def tts(text: str, voice: str = "af_heart") -> bytes:
-    """Kokoro TTS -> 16 kHz mono WAV bytes (server emits 24 kHz)."""
+    """Kokoro TTS (SECONDARY generator, v1.1) -> 16 kHz mono WAV bytes."""
     import soundfile as sf
 
     r = requests.post(f"{TTS_URL}/v1/audio/speech",
@@ -94,6 +94,24 @@ def tts(text: str, voice: str = "af_heart") -> bytes:
     r.raise_for_status()
     data, sr = sf.read(io.BytesIO(r.content))
     return to_wav16k(np.asarray(data), sr)
+
+
+_SUPERTONIC = None
+
+
+def tts_supertonic(text: str, voice: str = "F1") -> bytes:
+    """Supertonic-3 TTS (PRIMARY generator, v1.1) -> 16 kHz mono WAV bytes.
+
+    Voices: F1-F5, M1-M5. ONNX, CPU-fast (~1.5 s/clip). MIT SDK,
+    OpenRAIL-M weights (license reading: MERGE-RESEARCH §6).
+    """
+    global _SUPERTONIC
+    if _SUPERTONIC is None:
+        from supertonic import TTS as _SupertonicTTS
+        _SUPERTONIC = _SupertonicTTS()  # supertonic-3 is the default model
+    wav, _ = _SUPERTONIC.synthesize(
+        text, voice_style=_SUPERTONIC.get_voice_style(voice))
+    return to_wav16k(np.asarray(wav).squeeze(), _SUPERTONIC.sample_rate)
 
 
 def render_text_card(text: str, width: int = 800) -> bytes:
@@ -123,6 +141,85 @@ def render_text_card(text: str, width: int = 800) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+CAPTION_FRAC_MIN, CAPTION_FRAC_MAX = 0.10, 0.20  # v1.1 §E0.1 layout bounds
+
+
+def render_figure_caption(figure: bytes, caption: str,
+                          width: int = 800) -> tuple[bytes, dict]:
+    """Figure+caption composite (`image-captioned` doc-lane rendition).
+
+    Normative layout rules (CARD-SPEC v1.1 / TRAINING-CHECKLIST §E0.1):
+    caption strip 10-20% of canvas height, font size proportional to canvas
+    width, enforced margins, wrap-never-truncate. If the wrapped caption
+    would exceed 20%, the canvas widens (fewer lines, taller figure) until
+    it fits; if under 10%, the strip pads with whitespace up to the floor.
+    Returns (png bytes, layout dict for gen.layout).
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    fig = Image.open(io.BytesIO(figure)).convert("RGB")
+    for _ in range(6):
+        margin = max(12, width // 50)
+        font_px = max(14, width // 32)
+        try:
+            font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_px)
+        except OSError:
+            font = ImageFont.load_default()
+        probe = ImageDraw.Draw(Image.new("RGB", (width, 8)))
+        words, lines, line = caption.split(), [], ""
+        for w in words:
+            cand = f"{line} {w}".strip()
+            if probe.textlength(cand, font=font) > width - 2 * margin and line:
+                lines.append(line)
+                line = w
+            else:
+                line = cand
+        lines.append(line)
+        line_h = int(font_px * 1.35)
+        strip_h = 2 * margin + line_h * len(lines)
+        fig_h = round(fig.height * width / fig.width)
+        frac = strip_h / (fig_h + strip_h)
+        if frac <= CAPTION_FRAC_MAX:
+            break
+        width = int(width * 1.3)  # widen -> fewer lines, taller figure
+    if frac < CAPTION_FRAC_MIN:  # pad strip up to the floor
+        strip_h = int(fig_h * CAPTION_FRAC_MIN / (1 - CAPTION_FRAC_MIN)) + 1
+        frac = strip_h / (fig_h + strip_h)
+
+    canvas = Image.new("RGB", (width, fig_h + strip_h), "white")
+    canvas.paste(fig.resize((width, fig_h)), (0, 0))
+    d = ImageDraw.Draw(canvas)
+    for i, ln in enumerate(lines):
+        d.text((margin, fig_h + margin + line_h * i), ln,
+               fill="black", font=font)
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG")
+    layout = {"caption_frac": round(frac, 4), "font_px": font_px,
+              "margin_px": margin, "canvas": [width, fig_h + strip_h],
+              "fig_h": fig_h, "caption_lines": len(lines)}
+    return buf.getvalue(), layout
+
+
+def composite_roundtrip(image_path: str, layout: dict, caption: str) -> dict:
+    """Composite gate: OCR the caption STRIP (its boundary is known from
+    gen.layout), embed-sim vs caption. Cropping is what makes the gate
+    about caption legibility rather than photo content — the OCR detector
+    misses small strips on busy full canvases."""
+    import tempfile
+
+    from PIL import Image
+
+    with Image.open(image_path) as im:
+        strip = im.crop((0, layout["fig_h"], im.width, im.height))
+        with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+            strip.save(tmp.name)
+            got = ocr_text(tmp.name)
+    sim = cos(*teacher_embed([caption, got or " "]))
+    return {"roundtrip_sim": round(sim, 4), "ocr": "rapidocr-strip",
+            "ocr_text": got}
 
 
 # --- gates ----------------------------------------------------------------

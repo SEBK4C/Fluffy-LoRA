@@ -11,6 +11,8 @@ Checks every card in a JSONL manifest against:
   5. dedup: hash matches the protocol's recomputation
   6. interleaved modality order: image -> text -> audio (v1.0 hard rule,
      Gemma 4 pretraining convention)
+  7. image-captioned renditions carry gen.layout with caption_frac inside
+     the normative 10-20% band (v1.1 §E0.1 layout rules)
 
 Usage: validate_card.py cards.jsonl [more.jsonl ...] [--known ids.txt]
 Exit 0 = green. Deps: jsonschema, PIL, cardlib (numpy).
@@ -83,6 +85,17 @@ def check_card(card: dict, schema, known_ids: set[str]) -> list[str]:
         if view["source"] in GENERATED and not view.get("gate", {}).get("pass"):
             errs.append(f"{cid}: views.{view_name}: generated view without "
                         f"passing gate")
+        if view_name == "image-captioned":
+            frac = view.get("gen", {}).get("layout", {}).get("caption_frac")
+            if frac is None:
+                errs.append(f"{cid}: views.image-captioned: missing "
+                            f"gen.layout.caption_frac")
+            elif not (cardlib.CAPTION_FRAC_MIN <= frac
+                      <= cardlib.CAPTION_FRAC_MAX):
+                errs.append(f"{cid}: views.image-captioned: caption_frac "
+                            f"{frac} outside normative "
+                            f"[{cardlib.CAPTION_FRAC_MIN}, "
+                            f"{cardlib.CAPTION_FRAC_MAX}]")
 
     MOD_ORDER = {"image": 0, "text": 1, "audio": 2}
     for il in card.get("interleaved", []):

@@ -1,9 +1,39 @@
-# CARD-SPEC v1.0 — tri-modal training cards for Fluffy-LoRA
+# CARD-SPEC v1.1 — tri-modal training cards for Fluffy-LoRA
 
 **FROZEN 2026-07-12** (Sebastian's decisions A3, B1, C–H yes, per
 `DECISIONS-CARDSPEC.md`; H in its amended interleaved-friendly form).
-Frozen means frozen: changes require a new major version and a new pin in
-`cardkit/FREEZE.sha256`.
+**v1.1 additive amendment 2026-07-12 (Sebastian)** — see "v1.1 amendment"
+below; gates and all v1.0 rules unchanged. Frozen means frozen: changes
+require a new version and a new pin in `cardkit/FREEZE.sha256`.
+
+## v1.1 amendment (additive only)
+
+1. **TTS generator set** (supersedes decision B1): **Supertonic-3 PRIMARY**
+   (`Supertone/supertonic-3`, 99M ONNX via `pip install supertonic`,
+   voices F1–F5/M1–M5; MIT SDK + OpenRAIL-M weights, license reading in
+   MERGE-RESEARCH §6) + **kokoro-82m SECONDARY** (generator diversity =
+   free anti-shortcut axis). The A3 gate is unchanged and applies per-clip
+   regardless of generator. Provenance via existing `gen.model`/`gen.voice`.
+   Bulk audio unblocks when Supertonic's standard 200-sample pilot pass
+   rate is published (expect ≥ Kokoro's 69%; a shifted sim distribution is
+   reported, never re-tuned into the frozen thresholds).
+2. **New alt rendition, document lane: `image-captioned`** — figure+caption
+   composite (paper-figure realism). Normative layout rules
+   (TRAINING-CHECKLIST §E0.1): caption strip **10–20% of canvas height**
+   (recorded as `gen.layout.caption_frac`, validator-enforced), font size
+   proportional to canvas width, enforced margins, **wrap-never-truncate**;
+   the OCR round-trip ≥ 0.80 gate backstops any clipping that slips
+   through. Doc-lane exposures only — NEVER the sole photo-lane image↔text
+   positive (OCR shortcut). Reference renderer:
+   `cardlib.render_figure_caption`.
+3. **Two-tier clarification** (gate-bypass prevention): NOISY warmup pairs
+   (FLUX.1-schnell loose image↔text, §E0.1) are **NOT cards** — they are
+   exposure-style warmup shards outside the card store: no card IDs, never
+   mined for negatives, never on the eval side, provenance still stamped.
+   Card gates apply to the GATED tier only, unchanged.
+4. **Sign-off recorded**: Sebastian approves bulk mining for the **text and
+   image lanes now**; bulk **audio** unblocks when the Supertonic
+   200-sample pilot passes (item 1).
 
 Design goal: one card = one semantic anchor with renditions ("views") in all
 three modalities, stored **in the exact message format gemma-4's processor
