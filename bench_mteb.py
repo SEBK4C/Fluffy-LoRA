@@ -70,10 +70,15 @@ class CosineSimMixin:
 class GemmaEncoder(CosineSimMixin):
     """Byte-matches train.py/ratchet_eval.py's embed fn."""
 
-    def __init__(self, ckpt: str | None, dtype: str, device: str, batch: int):
+    def __init__(self, ckpt: str | None, dtype: str, device: str, batch: int,
+                 pooling: str = "masksum"):
         from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
         self.tok = AutoTokenizer.from_pretrained(GEMMA_ID)
         self.batch = batch
+        # "masksum" = v1's pooling (attention_mask.sum-1), byte-matches training
+        #   but reads a PAD position under gemma's left padding (the v1 bug).
+        # "lastpos" = h[:, -1], the correct last real token under left padding.
+        self.pooling = pooling
         kw = dict(torch_dtype=torch.bfloat16, attn_implementation="eager")
         if dtype == "nf4":
             kw["quantization_config"] = BitsAndBytesConfig(
@@ -103,8 +108,11 @@ class GemmaEncoder(CosineSimMixin):
             enc = self.tok(texts[i:i + self.batch], padding=True, truncation=True,
                            max_length=MAXLEN, return_tensors="pt").to(self.dev)
             h = self.model(**enc).last_hidden_state
-            idx = (enc["attention_mask"].sum(1) - 1).to(h.device)
-            emb = h[torch.arange(h.shape[0], device=h.device), idx]
+            if self.pooling == "lastpos":
+                emb = h[:, -1]
+            else:
+                idx = (enc["attention_mask"].sum(1) - 1).to(h.device)
+                emb = h[torch.arange(h.shape[0], device=h.device), idx]
             out.append(F.normalize(emb.float(), dim=-1).cpu())
         return torch.cat(out)
 
@@ -189,12 +197,15 @@ def main() -> None:
     ap.add_argument("--dtype", default="bf16", choices=["bf16", "nf4"])
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--batch", type=int, default=16)
+    ap.add_argument("--pooling", default="masksum", choices=["masksum", "lastpos"])
     ap.add_argument("--tasks", default=",".join(MTEB_TASKS + ["G0"]))
     ap.add_argument("--g0", default="data/g0-eval-cards.jsonl")
     ap.add_argument("--out", default="results")
     args = ap.parse_args()
 
-    tag = f"{args.contender}-{args.dtype}" + ("-1196" if args.ckpt and "1196" in args.ckpt else "")
+    tag = (f"{args.contender}-{args.dtype}"
+           + ("-1196" if args.ckpt and "1196" in args.ckpt else "")
+           + ("-fixedpool" if args.pooling == "lastpos" else ""))
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
     tasks = args.tasks.split(",")
@@ -203,10 +214,10 @@ def main() -> None:
         enc = QwenEncoder(args.device, args.batch)
     else:
         enc = GemmaEncoder(args.ckpt if args.contender == "lora" else None,
-                           args.dtype, args.device, args.batch)
+                           args.dtype, args.device, args.batch, args.pooling)
 
     report = {"contender": tag, "ckpt": args.ckpt, "batch": args.batch,
-              "maxlen": MAXLEN, "results": {}}
+              "maxlen": MAXLEN, "pooling": args.pooling, "results": {}}
 
     mteb_names = [t for t in tasks if t != "G0"]
     if mteb_names:
