@@ -160,7 +160,7 @@ Note on LCO: attention mode is not explicitly stated in their README
 (last-token pooling is confirmed from code). Verify causal-retained in their
 paper during the gate before citing it as evidence anywhere formal.
 
-## 4. Merge protocol (activation-difference shaping) — PROPOSED, not ratified
+## 4. Merge protocol (activation-difference shaping) — RATIFIED 2026-07-12
 
 Sebastian's idea: run the same cards through an external model and ours, use
 the embedding/activation differences to shape the Gemma4 LoRA.
@@ -171,21 +171,46 @@ decoder — TIES/DARE/soups all require identical architecture). BidirLM
 itself is the proof-by-demonstration: their merge worked *only because all
 three donors were the same Qwen3-1.7B skeleton*.
 
+**How modern is this process (checked 2026-07-12)?** Ingredients are 2019
+classics (CKA: Kornblith; RKD: Park), but the ladder is current practice:
+EMO (EMNLP 2025) does embedding-model distillation via intra-model
+relational distillation + CKA; the Platonic Representation Hypothesis
+(2024, + 2026 "language is the attractor of multimodal convergence"
+follow-up) is the theory predicting shared structure exists — and directly
+supports our language-centric design; vec2vec (NeurIPS 2025) demonstrated
+different encoders' spaces are translatable with NO paired data (universal
+geometry). Two modernizations adopted below: report mutual k-NN/CKNNA
+(local structure) alongside CKA (global), and probe PER-LANE (Kabra 2026:
+some cross-modal pairs show near-random similarity even between good
+models — pooled scores can hide a dead lane).
+
 The instinct maps to three real techniques, cheapest-first ladder:
 
-0. **CKA/Procrustes probe** — embed ~1k paired cards in both models; measure
-   shared structure (CKA; orthogonal Procrustes residual). Hours of work,
-   no training. **Kill gate: low CKA → the spaces don't share enough
-   structure; stop here, saved everything downstream.**
+0. **Structure probe** — embed ~1k paired cards in both models; report
+   **CKA (global) + mutual k-NN/CKNNA (local, k=10)**, computed **per lane**
+   (text/image/audio + cross-modal) — not pooled. Hours of work, no
+   training; rides along with the §3 teacher-gate run (model already
+   loaded). Calibration anchors, computed from the same embeddings:
+   - FLOOR: shuffled-pairing score (random-structure baseline)
+   - CEILING: Gemma4-base vs Qwen3-Embedding text teacher on the text lane
+     (two models KNOWN to share structure)
+   **KILL: candidate lands nearer FLOOR than CEILING on the lanes we'd
+   distill (esp. audio). PROCEED: nearer ceiling on ≥1 target lane —
+   distill only the lanes that pass.**
 1. **RKD pilot (200 cards)** — add a relational-distillation term to
    InfoNCE: match the teacher's card×card similarity matrix. Dimension-free
    (sim matrices, not vectors) — the 4096-vs-2048 mismatch never matters.
-   Was already in the unimplemented v1 full recipe.
+   Teacher sims precomputed offline; per-step overhead ≈ 0. Was already in
+   the unimplemented v1 full recipe.
+   **KEEP: some frozen-lane metric improves > eval epsilon (0.002) with no
+   lane regressing beyond epsilon, vs the identical run with the term off.
+   KILL otherwise — one A/B, no second chances in this window.**
 2. **Feature distillation via small projector** — only if 0 and 1 both earn
-   it; most machinery, weakest precedent at this scale.
+   it; most machinery, weakest precedent at this scale. NOT in this
+   window's scope regardless (vec2vec-style translators likewise noted as
+   evidence, not as machinery to build).
 
-Kill/keep criteria per rung: to be set in discussion before anything touches
-the v2 recipe. Nothing here blocks the v2 build.
+Nothing here blocks the v2 build; rung 0 is scheduled WITH the teacher gate.
 
 ## 5. Open questions
 
@@ -201,6 +226,11 @@ the v2 recipe. Nothing here blocks the v2 build.
 - Causal2Vec: https://arxiv.org/abs/2507.23386
 - LCO-Embedding: https://github.com/LCO-Embedding/LCO-Embedding ·
   https://huggingface.co/LCO-Embedding/LCO-Embedding-Omni-7B
+- vec2vec / universal geometry: https://arxiv.org/abs/2505.12540
+- EMO embedding distillation (EMNLP 2025):
+  https://aclanthology.org/2025.emnlp-main.385.pdf
+- Platonic Representation Hypothesis: https://arxiv.org/abs/2405.07987 ·
+  language-as-attractor follow-up: https://arxiv.org/abs/2605.09352
 - Gemini Embedding 2 tech report: https://arxiv.org/abs/2605.27295
 - Gemini Embedding (v1, staged recipe + soup + Gemini-as-data-engine):
   https://arxiv.org/abs/2503.07891
