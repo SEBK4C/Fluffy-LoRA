@@ -79,8 +79,11 @@ def main() -> None:
     done = set()
     if os.path.exists(out_path):
         with open(out_path) as f:
-            done = {json.loads(l)["card_id"] for l in f if l.strip()}
-        print(f"resume: {len(done)} already attempted")
+            # error rows (teacher outage, transient failures) are NOT done —
+            # they retry on the next run; only rows that reached CAS count
+            done = {r["card_id"] for r in map(json.loads,
+                    (l for l in f if l.strip())) if "cas" in r}
+        print(f"resume: {len(done)} already processed (errors will retry)")
 
     tasks = []
     with open(SRC) as f:
