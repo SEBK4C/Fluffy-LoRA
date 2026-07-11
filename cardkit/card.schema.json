@@ -130,7 +130,8 @@
         "view": { "type": "string", "pattern": "^(text|image|audio)(-[a-z0-9-]+)?$" },
         "miner": { "type": "string" },
         "sim": { "type": "number" },
-        "judge": { "type": "number" }
+        "judge": { "type": "number" },
+        "band_rule": { "type": "string" }
       }
     }
   }

@@ -31,7 +31,8 @@ import soundfile as sf
 import cardlib
 from cardlib import cas_put, cas_ref
 
-from build_golden import SRC, WER_MAX, RENDER_SIM_MIN, card_base, text_view
+from build_golden import (SRC, WER_MAX, TTS_SIM_MIN, RENDER_SIM_MIN,
+                          card_base, text_view)
 
 VOICES = ["af_heart", "af_bella", "am_michael", "bm_george"]
 report: dict = {"strata": {}, "tts": [], "render": [],
@@ -46,7 +47,7 @@ def tts_view(text: str, voice: str, origin: str, native_id: str) -> dict | None:
     report["tts"].append({"origin": origin, "native_id": native_id,
                           "voice": voice, "wer": m["asr_wer"],
                           "sim": round(sim, 4)})
-    if m["asr_wer"] > WER_MAX:
+    if not (m["asr_wer"] <= WER_MAX and sim >= TTS_SIM_MIN):
         return None
     return {"content": [{"type": "audio", "audio": cas_ref(sha)}],
             "source": "tts", "origin": origin, "native_id": native_id,
@@ -283,6 +284,20 @@ def mine_negatives(cards: list[dict], k: int = 4) -> None:
              "miner": "teacher-knn-pilot-v1"} for j in order]}
 
 
+def add_interleaved(cards: list[dict]) -> int:
+    """Tri-modal cards get an interleaved view — v1.0 hard order
+    image -> text -> audio (Gemma 4 pretraining convention)."""
+    n = 0
+    for c in cards:
+        v = c["views"]
+        if {"image", "text", "audio"} <= set(v):
+            c["interleaved"] = [{"recipe": "ita-base", "content": [
+                v["image"]["content"][0], v["text"]["content"][0],
+                v["audio"]["content"][0]]}]
+            n += 1
+    return n
+
+
 def main() -> None:
     strata = []
     strata += v001(80)
@@ -291,6 +306,7 @@ def main() -> None:
     strata += librispeech(30, start=141)
     strata += fsd50k(30, start=171)
     mine_negatives(strata)
+    report["interleaved_cards"] = add_interleaved(strata)
 
     outdir = os.path.join(cardlib.ROOT, "pilot")
     os.makedirs(outdir, exist_ok=True)

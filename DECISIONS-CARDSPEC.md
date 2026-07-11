@@ -1,5 +1,11 @@
 # CARD-SPEC freeze decisions — for Sebastian, 2026-07-11
 
+> **ANSWERED 2026-07-12 (Sebastian): A3, B1, C yes, D yes, E yes, F yes,
+> G yes, H yes (amended, interleaved-friendly version below). Spec frozen
+> at v1.0 — see CARD-SPEC.md and cardkit/FREEZE.sha256. GRIT auxiliary
+> loss (MERGE-RESEARCH §C2) is a builder smoke-series recipe decision,
+> not part of this freeze.**
+
 Answer tersely ("A3, B1, yes, yes, yes, yes, yes" works). On your answers I
 bump to v1.0, freeze, and pin the sha256. Evidence: `cardkit/GOLDEN-REPORT.md`
 (15 golden cards, all gates live) and a provisional 200-card pilot

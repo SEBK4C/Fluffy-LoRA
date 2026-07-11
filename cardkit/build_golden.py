@@ -50,9 +50,10 @@ SRC = {
     "fsd50k": os.environ.get("SRC_FSD50K", "/pool-6b/corpus-acq/work/fsd50k"),
 }
 
-# provisional gate thresholds — finalized at spec freeze from measurements
-WER_MAX = 0.10
-RENDER_SIM_MIN = 0.60
+# FROZEN v1.0 gates (DECISIONS-CARDSPEC.md: A3 + C)
+WER_MAX = 0.15
+TTS_SIM_MIN = 0.90
+RENDER_SIM_MIN = 0.80
 
 report: dict = {"thresholds": {"asr_wer_max": WER_MAX,
                                "render_roundtrip_sim_min": RENDER_SIM_MIN},
@@ -67,7 +68,7 @@ def gate_tts(text: str, voice: str) -> tuple[str, dict, dict]:
     sim = cardlib.cos(*cardlib.teacher_embed([text, m["transcript"] or " "]))
     gate = {"asr_wer": m["asr_wer"], "asr_model": m["asr_model"],
             "roundtrip_sim": round(sim, 4),
-            "pass": m["asr_wer"] <= WER_MAX}
+            "pass": m["asr_wer"] <= WER_MAX and sim >= TTS_SIM_MIN}
     report["gates"].append({"kind": "tts", "voice": voice,
                             "wer": m["asr_wer"], "sim": round(sim, 4),
                             "pass": gate["pass"], "text": text[:80]})

@@ -1,13 +1,33 @@
-# CARD-SPEC v0.2 — tri-modal training cards for Fluffy-LoRA
+# CARD-SPEC v1.0 — tri-modal training cards for Fluffy-LoRA
+
+**FROZEN 2026-07-12** (Sebastian's decisions A3, B1, C–H yes, per
+`DECISIONS-CARDSPEC.md`; H in its amended interleaved-friendly form).
+Frozen means frozen: changes require a new major version and a new pin in
+`cardkit/FREEZE.sha256`.
 
 Design goal: one card = one semantic anchor with renditions ("views") in all
 three modalities, stored **in the exact message format gemma-4's processor
 consumes** — so mining-time format and training-time format cannot drift.
-Draft for Sebastian's review; becomes frozen spec at v1.0.
 
 v0.2: format reality-tested against the actual gemma-4-12b-it processor
 (transformers 5.13.1, snapshot `0e2b105`) — see "Measured reality" below.
 Where the draft disagreed with the processor, the processor won.
+v1.0: gate thresholds fixed from 200-card pilot measurements; interleaved
+modality-order rule; TopK-PercPos negative-band metadata.
+
+## Frozen gates & mining rules (v1.0 decisions)
+
+| Rule | Frozen value | Basis |
+|---|---|---|
+| TTS gate | **WER ≤ 0.15 AND teacher round-trip sim ≥ 0.90** (whisper-small transcript vs source text) | A3: 67% yield at pilot; rejects semantic garble, admits minor mispronunciation |
+| TTS generator | no-espeak Kokoro Q4 stays for v2 (B1) | yield acceptable under A3; espeak rebuild is a later upgrade path |
+| Render gate | **OCR round-trip sim ≥ 0.80** | C: pilot n=50 min 0.814, median 0.977 |
+| Negatives per exposure | **k = 8** + in-batch (D) | ATIR working point |
+| Negative band | **TopK-PercPos**: per query, negative ceiling = 0.95 × that query's positive sim (NV-Retriever false-negative filter), recorded per negative as `band_rule` | H |
+| `instruction` field | carried in exposures, OFF by default, A/B at v2 smoke (E; expected to land ON per MERGE-RESEARCH §2D) | |
+| ColPali queries | instruction boilerplate stripped at mining time (G) | 11/41 pilot queries carried it |
+| Interleaved exposures | first-class MINORITY lane in the v2 base mix, incl. permutation negatives; single-modality views remain the bulk (H, amended) | Gemma 4 interleaved pretraining |
+| **Interleaved modality order** | **image → text → audio, validator-enforced** (all image items before all text items before all audio items) | Gemma 4 pretraining convention |
 
 ## Two-layer design: CARDS vs EXPOSURES
 
@@ -137,7 +157,7 @@ Probed on the 3080 Ti host, gemma-4-12b-it snapshot `0e2b105`, transformers
 | Contrast type | Example | Purpose |
 |---|---|---|
 | Cross-modal positive | card's audio ↔ same card's text | the alignment signal |
-| In-modal hard negative | text of near-miss card (teacher band 0.75–0.92 re-derived) | fine-grained text discrimination |
+| In-modal hard negative | text of near-miss card (TopK-PercPos: ceiling = 0.95 × the query's positive sim, per H) | fine-grained text discrimination |
 | Cross-modal hard negative | image of ANN-nearest other card | cross-modal discrimination |
 | Anti-shortcut negative | SAME TTS voice, different text; same render font, different text | kills speaker/font shortcuts |
 | Permutation negative | interleaved view with swapped media from another card | interleave understanding (c1 pattern) |

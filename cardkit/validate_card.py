@@ -9,6 +9,8 @@ Checks every card in a JSONL manifest against:
   4. gate discipline: any generated view (rendered/tts/genai/captioned/asr)
      must carry gate.pass == true — failed gates never ship
   5. dedup: hash matches the protocol's recomputation
+  6. interleaved modality order: image -> text -> audio (v1.0 hard rule,
+     Gemma 4 pretraining convention)
 
 Usage: validate_card.py cards.jsonl [more.jsonl ...] [--known ids.txt]
 Exit 0 = green. Deps: jsonschema, PIL, cardlib (numpy).
@@ -81,6 +83,13 @@ def check_card(card: dict, schema, known_ids: set[str]) -> list[str]:
         if view["source"] in GENERATED and not view.get("gate", {}).get("pass"):
             errs.append(f"{cid}: views.{view_name}: generated view without "
                         f"passing gate")
+
+    MOD_ORDER = {"image": 0, "text": 1, "audio": 2}
+    for il in card.get("interleaved", []):
+        ranks = [MOD_ORDER[item["type"]] for item in il["content"]]
+        if ranks != sorted(ranks):
+            errs.append(f"{cid}: interleaved:{il['recipe']}: modality order "
+                        f"must be image -> text -> audio")
 
     for modality, negs in card.get("negatives", {}).items():
         for neg in negs:
