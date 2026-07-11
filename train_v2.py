@@ -534,7 +534,9 @@ def main() -> None:
     rank, world, dev = setup_dist()
     OUT.mkdir(parents=True, exist_ok=True)
 
-    shard_paths = sorted(str(p) for p in Path(SHARD_DIR).glob("*.tar"))
+    # FL_SHARDS: colon-separated shard dirs (e.g. "shards/text-v001:shards/img-warmup")
+    shard_paths = sorted(str(p) for d in SHARD_DIR.split(":") if d
+                         for p in Path(d).glob("*.tar"))
     if not shard_paths:
         raise SystemExit(f"no shards in FL_SHARDS={SHARD_DIR!r}")
     store = shards_v2.ExposureStore(shard_paths)
