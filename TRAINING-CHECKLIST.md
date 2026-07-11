@@ -108,6 +108,43 @@ Fill matrix (real → generated):
 | Image from text | rendered typographic card (KISS default); image-gen API only where rendering is semantically wrong | independent VLM captions the image → embed-sim to source ≥ threshold (round-trip) |
 | Text from audio | ASR (whisper) | reverse: TTS the transcript? No — gate on ASR confidence + teacher band vs any existing text |
 
+### E0.1 Generator upgrades + two-tier data (Sebastian-ratified 2026-07-12)
+
+- **Image gen = LOCAL FLUX.1-schnell (Apache-2.0)**, ~1s/image on a 4090:
+  bulk generation runs BEFORE the v2 swap (3080 Ti afterward). **NO image
+  APIs** — Google/OpenAI terms carry a non-compete clause over outputs
+  (same hazard class as Gemini-TTS; rationale in MERGE-RESEARCH §6).
+- **Two-tier data** (GE-2 pre-finetuning pattern; maps to MERGE-RESEARCH
+  §2H staged warmup):
+  - NOISY tier: FLUX loose image↔text pairs, dedup + sanity checks only,
+    no strict round-trip — feeds the WARMUP stage ONLY. Target 100–200k.
+  - GATED tier: full frozen gates, feeds the main mix; real photos stay
+    dominant HERE (anti-shortcut rule unchanged); generated never on the
+    eval side (§F).
+- **Figure+caption composite views = DOCUMENT-lane** (`image-captioned`
+  alt rendition, paper-figure realism): caption strip 10–20% of canvas
+  height, font size proportional to canvas width, enforced margins,
+  wrap-never-truncate (the v-old clipped-glyph bug becomes a layout rule);
+  OCR round-trip ≥ 0.80 backstops any clipping that slips through. Layout
+  params derived on the 200-sample pilot. Composites are doc-lane
+  exposures — NEVER the sole photo-lane image↔text positive (OCR shortcut).
+- Tri-modal from caption datasets: figure+caption image + caption text +
+  caption TTS = a full card from one source (composes with the E-table
+  MMEB row).
+- **TTS generator candidate: Supertonic-3** (99M ONNX, CPU-fast, 31 langs;
+  MIT SDK + OpenRAIL-M weights — outputs owned by us, NO non-compete
+  clause; derivative-clause reading in MERGE-RESEARCH §6). Bench on the
+  SAME 200-sample pilot texts under the frozen A3 gate before bulk audio:
+  adopt as primary if ≥ +10 pts overall vs Kokoro's 69% AND the ColPali
+  lane (60%) is fixed; keep Kokoro as secondary generator regardless
+  (generator diversity = free anti-shortcut axis).
+- **Negative-mining waves**: wave 1 = teacher-mined ONLY (Qwen3-VL; LCO if
+  it passes the MERGE-RESEARCH §3 gate). Wave 2 = ANCE-style student
+  self-mining (multi-instance Gemma4 across local GPUs) — EVIDENCE-GATED:
+  unlocks only if the eval agent's MTEB run + IMG-H1 probe show base
+  Gemma4 embeds competently (v1's G0 baseline was 0.008 R@1 ≈ random;
+  mining with a random space yields random negatives).
+
 Gates that apply to EVERY card, generated or real:
 - [ ] Round-trip check per generated asset (table above), thresholds derived
       on a 200-sample pilot BEFORE bulk generation (the proven v002 pattern)

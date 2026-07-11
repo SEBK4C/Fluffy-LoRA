@@ -279,6 +279,34 @@ distribution-matched); image GENERATION stays E0's narrow exception (real
 photos dominant); every API asset gets generator+version provenance
 (SIGNOFF-001) and ledgered spend.
 
+**Generator ToS findings + local-generation decisions (RATIFIED
+2026-07-12, operational detail in TRAINING-CHECKLIST §E0.1):**
+- **Google AI/ML service terms** (Cloud Service Specific Terms + Gemini
+  API terms) prohibit using generated output to "create or improve models
+  similar to a Google Model" / that "compete with the Services." Google
+  sells Gemini Embedding 2 — training Fluffy's lanes on Gemini-TTS or
+  Imagen output is squarely in that clause. OpenAI terms carry the same
+  class of restriction. **Verdict: no Google/OpenAI generative APIs for
+  training data.** Same check applies to any future API before first use.
+- **Supertonic-3 TTS** (Supertone; MIT SDK, OpenRAIL-M weights): outputs
+  owned by the user, commercial use permitted, NO non-compete clause.
+  Derivative-clause nuance, documented reading: "Derivatives of the
+  Model" includes synthetic-data-trained models only when trained "in
+  order to cause the other model to perform similarly to the Model" — an
+  embedding adapter is not trained to perform like a TTS, so Fluffy is
+  not a derivative under the plain reading; worst-case reading merely
+  attaches OpenRAIL use-restrictions to the release (acceptable, SD-
+  ecosystem-standard). Adoption is bench-gated (frozen A3 on the same
+  200-sample pilot texts vs Kokoro).
+- **FLUX.1-schnell (Apache-2.0, local)** = the image generator; loose
+  FLUX pairs feed the §2H WARMUP stage only (GE-2's noisy pre-finetuning
+  tier, reinvented independently by Sebastian), gated pairs feed the main
+  mix. Figure+caption composites = document-lane views only (OCR-shortcut
+  guard). 
+- **Negative mining**: wave 1 teacher-only; ANCE-style student self-mining
+  (arXiv 2007.00808 precedent) is wave 2, evidence-gated on base-model
+  embedding competence (MTEB wind-down bench + IMG-H1).
+
 ## Sources (all fetched 2026-07-11)
 
 - BidirLM: https://arxiv.org/abs/2604.02045
@@ -286,6 +314,13 @@ photos dominant); every API asset gets generator+version provenance
 - Causal2Vec: https://arxiv.org/abs/2507.23386
 - LCO-Embedding: https://github.com/LCO-Embedding/LCO-Embedding ·
   https://huggingface.co/LCO-Embedding/LCO-Embedding-Omni-7B
+- Supertonic TTS: https://github.com/supertone-inc/supertonic ·
+  https://huggingface.co/Supertone/supertonic-3 (LICENSE file read in full)
+- Google GenAI/Cloud terms (non-compete over outputs):
+  https://policies.google.com/terms/generative-ai ·
+  https://cloud.google.com/terms/service-terms
+- ANCE (student self-mined negatives precedent):
+  https://arxiv.org/abs/2007.00808
 - E5-V (extraction prompt kills modality gap; text-only training):
   https://arxiv.org/abs/2407.12580
 - MIEB (task-type breakdown behind IMG-H3/H4/H5):
