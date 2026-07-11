@@ -131,13 +131,14 @@ Fill matrix (real → generated):
 - Tri-modal from caption datasets: figure+caption image + caption text +
   caption TTS = a full card from one source (composes with the E-table
   MMEB row).
-- **TTS generator candidate: Supertonic-3** (99M ONNX, CPU-fast, 31 langs;
-  MIT SDK + OpenRAIL-M weights — outputs owned by us, NO non-compete
-  clause; derivative-clause reading in MERGE-RESEARCH §6). Bench on the
-  SAME 200-sample pilot texts under the frozen A3 gate before bulk audio:
-  adopt as primary if ≥ +10 pts overall vs Kokoro's 69% AND the ColPali
-  lane (60%) is fixed; keep Kokoro as secondary generator regardless
-  (generator diversity = free anti-shortcut axis).
+- **TTS generator: Supertonic-3 ADOPTED as primary (Sebastian 2026-07-12)**
+  (99M ONNX, CPU-fast, 31 langs; MIT SDK + OpenRAIL-M weights — outputs
+  owned by us, NO non-compete clause; derivative-clause reading in
+  MERGE-RESEARCH §6). Before bulk audio: standard 200-sample pilot on the
+  SAME frozen A3 gate — publish pass rates (expect ≥ Kokoro's 69%; if it
+  somehow benches WORSE, stop and report, don't grind). Kokoro stays as
+  secondary generator (generator diversity = free anti-shortcut axis).
+  Supersedes freeze decision B1 → CARD-SPEC v1.1 amendment.
 - **Negative-mining waves**: wave 1 = teacher-mined ONLY (Qwen3-VL; LCO if
   it passes the MERGE-RESEARCH §3 gate). Wave 2 = ANCE-style student
   self-mining (multi-instance Gemma4 across local GPUs) — EVIDENCE-GATED:
