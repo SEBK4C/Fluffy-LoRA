@@ -32,6 +32,14 @@ just kill the run, it can wedge the whole machine.
 
 ## B. v2 trainer deltas (from current train.py)
 
+> **ARCHITECTURE RATIFIED 2026-07-11 — read `MERGE-RESEARCH.md` §2 before
+> building**: causal attention + last-token pooling stays (bidir CLOSED on
+> 2026 SOTA evidence, not just parked); output = native 4096-dim, NO
+> projection head, MRL ladder 4096→2048→1024→512→256 (2048 rung = field
+> comparability); cards encode separate-stream, not interleaved; instruction
+> prefix at encode time (byte-match train/eval); TopK-PercPos 95%
+> false-negative filter in all teacher mining (§D re-banding).
+
 - [ ] Full multimodal model — drop the `.language_model` strip; vision/audio
       towers frozen; LoRA targets unchanged (A1/A3/A4 smokes on the 3080 Ti)
 - [ ] Alternating single-modality-lane batches, DDP-safe (A6: 20-step smoke)
@@ -73,8 +81,11 @@ The 2B sibling is a throughput option for bulk mining.
 - [ ] Keep v001's existing pairs as mined (old teacher); no retroactive
       re-banding of frozen assets
 - [ ] Mine image↔text bands + ANN hard negatives with the VL teacher
-- [ ] Audio: accept there is NO tri-modal embedding teacher — audio lanes use
-      dataset ground truth + constructed negatives (§E)
+- [ ] Audio: **UPDATED 2026-07-11** — audio-capable teacher candidates now
+      exist; gate lineup + protocol in `MERGE-RESEARCH.md` §3 (primary:
+      LCO-Embedding-Omni-7B, Apache-2.0, MAEB #1). Until a candidate PASSES
+      the gate, the old rule stands: audio lanes use dataset ground truth +
+      constructed negatives (§E)
 
 ## E0. BUILD THE TRI-MODAL CARD DATASET — ASAP, quality-gated ⚡
 
