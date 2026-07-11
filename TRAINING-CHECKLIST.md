@@ -68,9 +68,16 @@ just kill the run, it can wedge the whole machine.
 - [ ] sha256 manifest per tar shard; verify after rsync, before the gate
 - [ ] READBACK GATE: 2-min dummy-DataLoader bench must sustain 10× the needed
       samples/s from the HDD
+      — ALIGN 2026-07-11: harness DEPLOYED to rig (big-SSD fluffy/readback_gate.py,
+      4 prefetch workers, corrupt-skip) + self-tested end-to-end on dummy shards;
+      real run pending shards + the /pool-5tb staging-home root blocker (T9 22:41Z)
 - [ ] Dataloader skips + logs corrupt samples — one bad shard must never kill
       day 9 of the run
-- [ ] Verify base-model weights + tokenizer/processor are rig-local too
+- [x] Verify base-model weights + tokenizer/processor are rig-local too
+      — ALIGN 2026-07-11 22:44Z: gemma-4-12b-it snapshot (23G, weights +
+      tokenizer + processor) present in the rig login user's HF cache.
+      ⚠ It sits on the rig ROOT FS (87% full, 61G free) — relocate to the
+      big SSD mount + point HF_HOME there before the swap (root action)
 
 ## D. Teacher upgrade — Qwen3-VL-Embedding-8B ✅ verified real
 
@@ -210,7 +217,13 @@ Adaptation map for datasets we already have:
 
 - [ ] Disable unattended-upgrades / kernel + driver auto-updates for the
       window (a mid-run driver bump is a classic run-killer)
-- [ ] Audit cron/systemd timers + docker for anything that grabs GPU or
+- [x] Audit cron/systemd timers + docker for anything that grabs GPU or
       writes the root fs
+      — ALIGN 2026-07-11 22:44Z audit (report-only) in T9-STATUS: rig
+      unattended-upgrades ACTIVE (no holds — driver eligible), snapd
+      refresh 4×/day, netdata-updater daily, 10-min root backup mirror on
+      pool-5tb/Ai-projects; docker all-exited; GPU procs = EVAL only.
+      ⚠ PVE tailscale node key expires 2026-07-20 (day 8/14). DISABLING
+      anything = orchestrator action, still open (box above)
 - [ ] Watch firing checklist gains: df on all three storage tiers
 - [ ] THE SWAP stays hard-gated on Sebastian typing **"restart approved"**
