@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SEBK4C/Fluffy-LoRA/blob/main/cardkit/card.schema.json",
+  "title": "Fluffy-LoRA training card (CARD-SPEC v0.2)",
+  "type": "object",
+  "required": ["card_id", "anchor_text", "views", "rights", "dedup"],
+  "additionalProperties": false,
+  "properties": {
+    "card_id": { "type": "string", "pattern": "^flf-[a-z0-9][a-z0-9-]{2,30}$" },
+    "anchor_text": { "type": "string", "minLength": 1 },
+    "views": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^(text|image|audio)(-[a-z0-9-]+)?$": { "$ref": "#/$defs/view" }
+      },
+      "additionalProperties": false
+    },
+    "interleaved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["recipe", "content"],
+        "additionalProperties": false,
+        "properties": {
+          "recipe": { "type": "string" },
+          "content": { "$ref": "#/$defs/contentArray" }
+        }
+      }
+    },
+    "negatives": {
+      "type": "object",
+      "patternProperties": {
+        "^(text|image|audio)$": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/negRef" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rights": {
+      "type": "object",
+      "required": ["tier"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": {
+          "enum": ["commercial", "commercial_after_attribution", "source_audit_required", "research_only", "evaluation_only", "quarantine"]
+        },
+        "license": { "type": "string" },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "audit": { "enum": ["pending", "clear"] },
+        "redistribution_ok": { "type": "boolean" }
+      }
+    },
+    "dedup": {
+      "type": "object",
+      "required": ["protocol", "hash"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol": { "type": "string" },
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "casRef": { "type": "string", "pattern": "^cas://[0-9a-f]{64}$" },
+    "contentItem": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "text"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "text" }, "text": { "type": "string", "minLength": 1 } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "image"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "image" }, "image": { "$ref": "#/$defs/casRef" } }
+        },
+        {
+          "type": "object",
+          "required": ["type", "audio"],
+          "additionalProperties": false,
+          "properties": { "type": { "const": "audio" }, "audio": { "$ref": "#/$defs/casRef" } }
+        }
+      ]
+    },
+    "contentArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/contentItem" }
+    },
+    "view": {
+      "type": "object",
+      "required": ["content", "source", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "content": { "$ref": "#/$defs/contentArray" },
+        "source": { "enum": ["real", "synthetic", "rendered", "tts", "genai", "captioned", "asr"] },
+        "origin": {
+          "enum": ["v001", "mmeb", "colpali", "visrag", "librispeech", "mls", "fsd50k", "commonvoice", "laion-audio"]
+        },
+        "native_id": { "type": "string" },
+        "gen": {
+          "type": "object",
+          "required": ["model"],
+          "properties": {
+            "model": { "type": "string" },
+            "version": { "type": "string" },
+            "voice": { "type": "string" }
+          }
+        },
+        "gate": {
+          "type": "object",
+          "required": ["pass"],
+          "properties": { "pass": { "type": "boolean" } }
+        }
+      },
+      "if": { "properties": { "source": { "enum": ["rendered", "tts", "genai", "captioned", "asr"] } } },
+      "then": { "required": ["content", "source", "origin", "gen", "gate"] }
+    },
+    "negRef": {
+      "type": "object",
+      "required": ["card_id", "miner"],
+      "additionalProperties": false,
+      "properties": {
+        "card_id": { "type": "string", "pattern": "^flf-[a-z0-9][a-z0-9-]{2,30}$" },
+        "view": { "type": "string", "pattern": "^(text|image|audio)(-[a-z0-9-]+)?$" },
+        "miner": { "type": "string" },
+        "sim": { "type": "number" },
+        "judge": { "type": "number" }
+      }
+    }
+  }
+}

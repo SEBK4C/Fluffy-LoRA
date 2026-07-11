@@ -1,0 +1,118 @@
+{
+  "card_id": "flf-g001",
+  "anchor_text": "The contractor accelerated the construction schedule for the Meridian Heights high-rise foundation, removing formwork and applying loads before the concrete achieved the specified twenty-eight-day curing period, resulting in reduced structural tensile strength.",
+  "views": {
+    "text": {
+      "content": [
+        {
+          "type": "text",
+          "text": "The contractor accelerated the construction schedule for the Meridian Heights high-rise foundation, removing formwork and applying loads before the concrete achieved the specified twenty-eight-day curing period, resulting in reduced structural tensile strength."
+        }
+      ],
+      "source": "synthetic",
+      "origin": "v001",
+      "native_id": "f822d61e0d4a2a9491b1"
+    },
+    "audio": {
+      "content": [
+        {
+          "type": "audio",
+          "audio": "cas://d6ec33b1e2ff4107792325b6a4e515e5c4eb66a0ed55df11f922a52418a22d2e"
+        }
+      ],
+      "source": "tts",
+      "origin": "v001",
+      "native_id": "f822d61e0d4a2a9491b1",
+      "gen": {
+        "model": "kokoro-82m-gguf",
+        "version": "tts.cpp-ape",
+        "voice": "af_heart"
+      },
+      "gate": {
+        "asr_wer": 0.0857,
+        "asr_model": "faster-whisper-small-int8",
+        "roundtrip_sim": 0.9604,
+        "pass": true
+      }
+    },
+    "image": {
+      "content": [
+        {
+          "type": "image",
+          "image": "cas://60816a410ca1bc50e94a3d99b7ec35a140277bda3381d883d4e9760b922fc6b2"
+        }
+      ],
+      "source": "rendered",
+      "origin": "v001",
+      "native_id": "f822d61e0d4a2a9491b1",
+      "gen": {
+        "model": "pil-typographic-card",
+        "version": "v1"
+      },
+      "gate": {
+        "roundtrip_sim": 0.9535,
+        "ocr": "rapidocr",
+        "pass": true
+      }
+    },
+    "audio-alt-voice": {
+      "content": [
+        {
+          "type": "audio",
+          "audio": "cas://30600937a032203e95b3aae2115929ab5bfb2c159a0aaba0712a001cfd86b851"
+        }
+      ],
+      "source": "tts",
+      "origin": "v001",
+      "native_id": "f822d61e0d4a2a9491b1",
+      "gen": {
+        "model": "kokoro-82m-gguf",
+        "version": "tts.cpp-ape",
+        "voice": "bm_george"
+      },
+      "gate": {
+        "asr_wer": 0.0857,
+        "asr_model": "faster-whisper-small-int8",
+        "roundtrip_sim": 0.9676,
+        "pass": true
+      }
+    }
+  },
+  "rights": {
+    "tier": "commercial",
+    "license": "self-synthetic",
+    "redistribution_ok": true
+  },
+  "dedup": {
+    "protocol": "anchor-sha256-v1",
+    "hash": "a42c452e087dd95bcc3c90b985cc4b03df40c6cda95dc4a35cdde114135253d4"
+  },
+  "negatives": {
+    "audio": [
+      {
+        "card_id": "flf-g003",
+        "view": "audio",
+        "miner": "same-voice-diff-text"
+      }
+    ],
+    "text": [
+      {
+        "card_id": "flf-g002",
+        "sim": 0.4926,
+        "miner": "teacher-knn-golden-v1"
+      },
+      {
+        "card_id": "flf-g003",
+        "sim": 0.4349,
+        "miner": "teacher-knn-golden-v1"
+      }
+    ],
+    "image": [
+      {
+        "card_id": "flf-g002",
+        "sim": 0.4926,
+        "miner": "teacher-knn-golden-ximg-v1"
+      }
+    ]
+  }
+}
