@@ -1,0 +1,13 @@
+# big / gated artifacts never go to the public repo
+checkpoints/
+logs/
+*.safetensors
+*.gguf
+*.npz
+*.tar
+shards/
+media/
+# env
+venv/
+__pycache__/
+.env

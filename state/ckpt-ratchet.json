@@ -1,0 +1,56 @@
+{
+  "best_r1": 0.008,
+  "best_checkpoint": "none",
+  "kept": [
+    {
+      "ckpt": "none",
+      "r1": 0.008,
+      "r5": 0.0213,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 235.2,
+      "ts": "2026-07-11T07:27:55Z"
+    }
+  ],
+  "rejected": [
+    {
+      "ckpt": "none",
+      "r1": 0.008,
+      "r5": 0.0213,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 232.0,
+      "ts": "2026-07-11T07:56:30Z"
+    },
+    {
+      "ckpt": "none",
+      "r1": 0.008,
+      "r5": 0.0213,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 240.6,
+      "ts": "2026-07-11T08:00:43Z"
+    },
+    {
+      "ckpt": "/pool-ssd/synth-forge/ckpts/step-90",
+      "r1": 0.008,
+      "r5": 0.0207,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 289.8,
+      "ts": "2026-07-11T08:05:46Z"
+    },
+    {
+      "ckpt": "/pool-ssd/synth-forge/ckpts/step-1196",
+      "r1": 0.01,
+      "r5": 0.039,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 286.3,
+      "ts": "2026-07-11T14:22:33Z"
+    }
+  ],
+  "sigma_ckpt": 0.0,
+  "eps_effective": 0.002,
+  "sigma_note": "from 3 baseline re-evals [0.008, 0.008, 0.008]"
+}
