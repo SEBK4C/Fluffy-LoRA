@@ -215,9 +215,69 @@ Nothing here blocks the v2 build; rung 0 is scheduled WITH the teacher gate.
 ## 5. Open questions
 
 - MRL loss weighting: uniform is the default; any evidence for weighted?
-- Exact instruction-prompt strings per task family (fix before v2 launch).
+- Exact instruction-prompt strings per task family (fix before v2 launch;
+  IMG-H2's extraction-prompt A/B feeds this).
 - LCO paper deep-read: LoRA rank, data list, attention mode (during gate).
 - Laion-Audio-300M rights tier (wave-2 acquisition, per cd6d0cc).
+
+## 6. External targets + image-lane hypothesis slate (RATIFIED targets,
+## PROPOSED hypotheses — Sebastian, 2026-07-12)
+
+**Primary external target: MAEB SOTA.** Rationale: current #1 (LCO) won
+without training on audio — the lane is nearly empty; our audio plan (real
+speech + real env sound + gated TTS fill + voice-invariance negatives) on
+the largest backbone in the race is where the alpha concentrates.
+**Secondary target: the document/visually-rich slice of MIEB** (ViDoRe-
+style) — decoder-based embedders already beat CLIP-style there, Gemma4's
+OCR-heavy pretraining + our ColPali/VisRAG/rendered-card lanes concentrate
+exactly there. All-MIEB and MTEB-text are calibration references, not
+targets. Banked regardless of charts: first open-weights single-backbone
+tri-modal embedding adapter at 12B.
+
+Image-lane hypotheses (cheapest first; IMG-H1/H2 are eval-only and should
+run on the currently-free rig BEFORE v2 training exists):
+
+- **IMG-H1 — inherited capacity probe (zero training).** LCO's scaling law
+  + Gemma4-12b's generative image scores (above every ≤7B backbone on the
+  MIEB podium) predict the UNTRAINED base, with instruction prompt +
+  last-token pooling, already lands respectably on parts of MIEB. Test:
+  base model on 3–4 MIEB-lite tasks vs LCO/GME published numbers. Measures
+  how much of Google's training we inherit free; maps the real gaps.
+- **IMG-H2 — modality-gap extraction prompt (E5-V, arXiv 2407.12580,
+  verified).** "…Summary of the above image in one word:" collapses the
+  text↔image modality gap BEFORE training; E5-V then trained on text pairs
+  ONLY at ~5% cost and beat image-text-trained baselines. Synergy: if the
+  prompt closes the gap, our 65%-text mix + staged warmup transfer to
+  images the way LCO's transferred to audio. Test: A/B extraction prompts
+  on the IMG-H1 probe; measure cross-modal sim distributions + retrieval.
+  Feeds the §2D instruction-string decision.
+- **IMG-H3 — document beachhead.** Formalized as the secondary target
+  above. Test: the MIEB doc subset lives in the frozen image eval as its
+  own tracked line.
+- **IMG-H4 — classification gap is a data problem.** MLLM embedders lose
+  to CLIP on zero-shot classification/clustering, plausibly for lack of
+  label-style positives. Fix in existing card machinery: label-text views
+  ("a photo of {class}") from datasets we hold. Test: 200-card pilot lane +
+  one small zero-shot classification task in the eval.
+- **IMG-H5 — permutation negatives buy compositionality.** CLIP-family
+  fails compositional tasks (bag-of-words); hard compositional negatives
+  are the published fix; our contrast taxonomy already contains them.
+  Test: one MIEB compositionality task in the frozen eval — check the
+  taxonomy actually cashes in.
+
+**API mining guidance (image lane)** — spend API on text ABOUT real
+images, never on bulk image generation or bulk captioning:
+1. Synthetic retrieval queries over REAL images (2–3 diverse queries per
+   MMEB/ColPali image) — the documented GE-2/Gecko synthetic-data win;
+   real media stays on the image side (§F satisfied by construction);
+   pairs gate through the teacher band like everything else.
+2. Compositional hard negatives for IMG-H5: minimally-wrong captions
+   (single attribute/relation swap) for real images — hard for small local
+   models, pennies via API.
+Anti-rules: no bulk API captioning (local gemma-4 is free and
+distribution-matched); image GENERATION stays E0's narrow exception (real
+photos dominant); every API asset gets generator+version provenance
+(SIGNOFF-001) and ledgered spend.
 
 ## Sources (all fetched 2026-07-11)
 
@@ -226,6 +286,10 @@ Nothing here blocks the v2 build; rung 0 is scheduled WITH the teacher gate.
 - Causal2Vec: https://arxiv.org/abs/2507.23386
 - LCO-Embedding: https://github.com/LCO-Embedding/LCO-Embedding ·
   https://huggingface.co/LCO-Embedding/LCO-Embedding-Omni-7B
+- E5-V (extraction prompt kills modality gap; text-only training):
+  https://arxiv.org/abs/2407.12580
+- MIEB (task-type breakdown behind IMG-H3/H4/H5):
+  https://arxiv.org/abs/2504.10471
 - vec2vec / universal geometry: https://arxiv.org/abs/2505.12540
 - EMO embedding distillation (EMNLP 2025):
   https://aclanthology.org/2025.emnlp-main.385.pdf
