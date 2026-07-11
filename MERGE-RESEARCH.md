@@ -16,6 +16,7 @@ it contrastively into one shared space:
 | LCO-Embedding-Omni-7B | Qwen2.5-Omni Thinker | LoRA + contrastive, last-token pool | NeurIPS 2025; **MAEB #1** (Borda), MIEB SOTA |
 | Omni-Embed-Nemotron-3B | Qwen2.5-Omni Thinker (Talker dropped) | contrastive | NVIDIA paper 2510.03458 |
 | BidirLM-Omni-2.5B | 3× Qwen3-1.7B variants, weight-merged | bidir+MNTP + contrastive | arXiv 2604.02045; no verifiable eval tables |
+| Gemini Embedding 2 (closed) | full Gemini, all params | **bidir flip + mean pool**, 2-stage NCE (PFT text/image/code → FT all modalities), Gemini-as-data-engine, model soup, 3072-dim + projection + MRL | tech report 2605.27295; proprietary SOTA, interleaved omnimodal |
 
 **Fluffy v2 is this exact recipe on gemma-4-12b-it — untried at 12B scale.
 We are filling the obvious next row of the table, not inventing a method.**
@@ -40,6 +41,16 @@ table**; BidirLM's own ablation shows contrastive training dominates
 a cheap A-series ablation if v2 retrieval stalls unexplainably.
 (Bonus: v1/G0 embedding-fn comparability is preserved, though that was not
 the deciding factor.)
+
+> **Confidence note (2026-07-12, GE-2 tech report)**: Gemini Embedding 2 —
+> the proprietary omni SOTA — flips to bidirectional + mean pooling. Live
+> counter-evidence, logged honestly. It does not flip the decision because
+> the regimes differ: GE-2 full-retrains ALL parameters from Gemini in two
+> stages at Google batch sizes — exactly where re-learning attention pays
+> off. Our budget-class analogue (LCO: LoRA-only, frozen backbone) stayed
+> causal/last-token and took MAEB #1. Status is therefore
+> **closed-for-LoRA-scale**: if Fluffy ever graduates from LoRA to full
+> fine-tune, this reopens FIRST.
 
 **B. Output dim = native 4096, no projection head, + Matryoshka (MRL).**
 gemma-4-12b hidden dim is 4096 (Sebastian-confirmed). No projection layer —
@@ -107,6 +118,27 @@ same-voice-different-text negatives) regardless.
 BidirLM's 50% merge-back-with-base has a zero-cost LoRA analogue: evaluate
 the adapter at 0.5 scale alongside full scale. (Already adopted, cd6d0cc.)
 
+**H. Staged modality warmup (adopted from GE-2, 2026-07-12).**
+GE-2 trains in two stages: pre-finetuning on text/image/code ONLY (huge
+noisy batches, in-batch negatives — its stated purpose: convert parameters
+from generation to encoding, stably), then fine-tuning where audio/video
+enter for the first time with curated hard-negative triplets. This is the
+THIRD independent confirmation of build-the-space-on-text-first (BidirLM
+65% text mix; LCO ~80/20). v2 adopts the scheduling analogue: a text+image-
+heavy warmup phase before the full tri-modal lane mix — pure data
+scheduling, no new machinery. Warmup length/mix = builder smoke decision.
+GE-2's attached warning, now binding on the pilot: cross-modality balance
+"was sensitive to hyper-parameters like sampling rates" — lane rates are a
+measured knob, never an assumed one (reinforces §2F's re-derive-at-pilot).
+
+**I. Model soup at eval (adopted from GE-2, 2026-07-12).**
+GE-2 finishes by averaging checkpoints within and across fine-tuning runs
+(weighted, e.g. 2:1 base:finetuned). LoRA analogue is near-zero cost: at
+eval time, also score (i) the average of the last few checkpoints' adapter
+weights and (ii) weighted blends with base (kin to §2G's half-strength
+contender). Add both to the v2 eval contender list; adopt only what the
+frozen evals reward.
+
 ## 3. Teacher gate — audio-lane candidacy (lineup RATIFIED, gate PROPOSED)
 
 No candidate earns anything by default. Gate: frozen G0 + 200-sample image
@@ -169,6 +201,12 @@ the v2 recipe. Nothing here blocks the v2 build.
 - Causal2Vec: https://arxiv.org/abs/2507.23386
 - LCO-Embedding: https://github.com/LCO-Embedding/LCO-Embedding ·
   https://huggingface.co/LCO-Embedding/LCO-Embedding-Omni-7B
+- Gemini Embedding 2 tech report: https://arxiv.org/abs/2605.27295
+- Gemini Embedding (v1, staged recipe + soup + Gemini-as-data-engine):
+  https://arxiv.org/abs/2503.07891
+- GRIT / GritLM: https://arxiv.org/abs/2402.09906
+- Gemma 4 tech report (interleaved pretraining, ordering convention,
+  12B unified encoder-free): https://arxiv.org/abs/2607.02770
 - Omni-Embed-Nemotron: https://arxiv.org/abs/2510.03458 ·
   https://huggingface.co/nvidia/omni-embed-nemotron-3b
 - Nemotron Omni 3 docs (generative, bolted-encoder camp — low transfer):
