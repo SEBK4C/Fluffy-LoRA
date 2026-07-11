@@ -110,6 +110,9 @@ class GemmaEncoder(CosineSimMixin):
             h = self.model(**enc).last_hidden_state
             if self.pooling == "lastpos":
                 emb = h[:, -1]
+            elif self.pooling == "mean":
+                m = enc["attention_mask"].to(h.device).unsqueeze(-1)
+                emb = (h * m).sum(1) / m.sum(1).clamp(min=1)
             else:
                 idx = (enc["attention_mask"].sum(1) - 1).to(h.device)
                 emb = h[torch.arange(h.shape[0], device=h.device), idx]
@@ -197,7 +200,8 @@ def main() -> None:
     ap.add_argument("--dtype", default="bf16", choices=["bf16", "nf4"])
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--batch", type=int, default=16)
-    ap.add_argument("--pooling", default="masksum", choices=["masksum", "lastpos"])
+    ap.add_argument("--pooling", default="masksum",
+                    choices=["masksum", "lastpos", "mean"])
     ap.add_argument("--tasks", default=",".join(MTEB_TASKS + ["G0"]))
     ap.add_argument("--g0", default="data/g0-eval-cards.jsonl")
     ap.add_argument("--out", default="results")
@@ -205,7 +209,7 @@ def main() -> None:
 
     tag = (f"{args.contender}-{args.dtype}"
            + ("-1196" if args.ckpt and "1196" in args.ckpt else "")
-           + ("-fixedpool" if args.pooling == "lastpos" else ""))
+           + {"lastpos": "-fixedpool", "mean": "-meanpool"}.get(args.pooling, ""))
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
     tasks = args.tasks.split(",")
