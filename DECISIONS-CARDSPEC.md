@@ -60,6 +60,29 @@ yes/no?
 carried it; TTS of boilerplate fails round-trip and the boilerplate is task
 noise, not semantics). yes/no?
 
+## H. Separate-stream base training (added from MERGE-RESEARCH §2C, 2026-07-11)
+
+Ratified architecture: v2 base training encodes each modality lane
+SEPARATELY; cross-modal alignment happens in the loss, not by fusing
+modalities into one encode (Omni-Embed-Nemotron finding: interleaving hurts
+retrieval). Spec impact, all small:
+
+- `interleaved` card field STAYS in the schema (cheap, just content arrays)
+  — but interleaved-view exposures, **including the permutation negative in
+  the contrast taxonomy, move OUT of the v2 base exposure mix** into the
+  "later ablation" bucket. (Honest tension: ATIR's interleave recipe cuts
+  the other way — that's exactly what the ablation is for.)
+- Exposure schema gains nothing; canonical single-modality views are
+  already the default.
+- Mined-negative metadata: record the band rule as **TopK-PercPos — per
+  query, negative ceiling = 0.95 × that query's positive sim** (NV-Retriever
+  false-negative filter, MERGE-RESEARCH §2E), not a global band constant.
+- Context for E: MERGE-RESEARCH §2D ratified instruction prompts as
+  adopted-pending-strings, so carry-the-field is expected to end up ON
+  after the smoke A/B.
+
+yes/no?
+
 ---
 Not blocking freeze, noted for the builder: MMEB captions carry typos
 ("form cincrete") — the TTS gate already rejects those clips; consider a
