@@ -4,7 +4,14 @@ Verified against the live rig 2026-07-11 ~17:30Z (training alive: step 1400,
 loss 1.66, both GPUs 100%). Checkboxes are the delta between what runs today
 and what v2 needs. Owner: builder window, except section A (Opus watch).
 
-## A. v1 run — checkpoint disk (act BEFORE ~day 12) ⚠️
+> **DECISION 2026-07-11 ~18:00Z — v1 ABANDONED (Sebastian).** Keep latest
+> weights as fluffy-text-v0, stop the trainer, benchmark the adapter on real
+> text-embedding tasks for learnings. Owned by the FLUFFY-EVAL agent —
+> see `EVAL-AGENT-BRIEF.md`. §A below is thereby SUPERSEDED (cleanup happens
+> in wind-down, no prune policy needed). Rig GPUs free after the stop until
+> the v2 swap.
+
+## A. v1 run — checkpoint disk (act BEFORE ~day 12) ⚠️ [SUPERSEDED by v1 stop]
 
 Measured reality: the trainer writes checkpoints to its home dir on the rig's
 **root filesystem — 455G, 84% full, 74G free**. Cadence ~131MB every ~30min ≈
@@ -68,6 +75,35 @@ The 2B sibling is a throughput option for bulk mining.
 - [ ] Mine image↔text bands + ANN hard negatives with the VL teacher
 - [ ] Audio: accept there is NO tri-modal embedding teacher — audio lanes use
       dataset ground truth + constructed negatives (§E)
+
+## E0. BUILD THE TRI-MODAL CARD DATASET — ASAP, quality-gated ⚡
+
+Priority order from Sebastian 2026-07-11: this is the first big build task.
+Principle: take the REAL datasets and fill the missing modalities with
+generative tools — but **nothing enters the training set without passing a
+gate**. Generated ≠ trusted.
+
+Fill matrix (real → generated):
+
+| Missing modality | Generator | Quality gate (automatic, per asset) |
+|---|---|---|
+| Audio from text | Kokoro TTS, multi-voice (in-house) | ASR round-trip (whisper) → WER ≤ 10% vs source text |
+| Text from image | VLM captioner (gemma-4 local) | teacher embed-sim caption↔image-source-text in band; dedup |
+| Image from text | rendered typographic card (KISS default); image-gen API only where rendering is semantically wrong | independent VLM captions the image → embed-sim to source ≥ threshold (round-trip) |
+| Text from audio | ASR (whisper) | reverse: TTS the transcript? No — gate on ASR confidence + teacher band vs any existing text |
+
+Gates that apply to EVERY card, generated or real:
+- [ ] Round-trip check per generated asset (table above), thresholds derived
+      on a 200-sample pilot BEFORE bulk generation (the proven v002 pattern)
+- [ ] 200-sample human spot-check gate: Sebastian eyeballs a stratified
+      sample before bulk mining is unleashed
+- [ ] Teacher-band dedup + near-miss mining per modality (§D/§E)
+- [ ] Provenance per asset: real|generated, generator model+version, source
+      CAS sha256, rights tier inherited from source (SIGNOFF-001)
+- [ ] Generated assets NEVER appear on the eval side — frozen evals use real
+      media on at least one side (§F)
+- [ ] Ledger the pass/reject rates per gate — if a gate rejects >30%, stop
+      and investigate the generator instead of grinding through
 
 ## E. Tri-modal cards (proposed scheme: text + image + audio per card)
 
