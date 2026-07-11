@@ -1,9 +1,13 @@
-# CARD-SPEC v0.1 — tri-modal training cards for Fluffy-LoRA
+# CARD-SPEC v0.2 — tri-modal training cards for Fluffy-LoRA
 
 Design goal: one card = one semantic anchor with renditions ("views") in all
 three modalities, stored **in the exact message format gemma-4's processor
 consumes** — so mining-time format and training-time format cannot drift.
 Draft for Sebastian's review; becomes frozen spec at v1.0.
+
+v0.2: format reality-tested against the actual gemma-4-12b-it processor
+(transformers 5.13.1, snapshot `0e2b105`) — see "Measured reality" below.
+Where the draft disagreed with the processor, the processor won.
 
 ## Two-layer design: CARDS vs EXPOSURES
 
@@ -50,11 +54,43 @@ Draft for Sebastian's review; becomes frozen spec at v1.0.
 ```
 
 Why `content` arrays: that is gemma-4's native chat-template item format
-(`{"type": "text"|"image"|"audio", ...}`). The training collate is literally
-`processor.apply_chat_template(card.views[m].content)` — zero translation
-layer, and interleaved views come for free (they're just longer content
-arrays). Same trick BidirLM-Omni and Gemini Embedding 2 use for interleaved
-inputs; ATIR confirms the two-stage InfoNCE recipe on audio-text interleave.
+(`{"type": "text"|"image"|"audio", ...}`). The training collate is:
+
+```python
+processor.apply_chat_template(
+    [{"role": "user", "content": resolve_cas(card.views[m].content)}],
+    tokenize=True, return_dict=True)
+```
+
+Two facts the v0.1 draft got wrong, verified against the real processor:
+the template REQUIRES the role wrapper (bare content arrays raise), and
+`cas://` refs are not loadable — `resolve_cas` swaps each `cas://<sha256>`
+for a local path (or PIL.Image / 16 kHz numpy array; all three are accepted).
+That resolve is the ONLY translation layer; interleaved views still come for
+free (they're just longer content arrays). Same trick BidirLM-Omni and
+Gemini Embedding 2 use for interleaved inputs; ATIR confirms the two-stage
+InfoNCE recipe on audio-text interleave.
+
+## Measured reality (Phase 1, `cardkit/probe_chat_template.py`)
+
+Probed on the 3080 Ti host, gemma-4-12b-it snapshot `0e2b105`, transformers
+5.13.1. Full numbers in `cardkit/probe_report.json`.
+
+| Item | Measured |
+|---|---|
+| Turn overhead | 6 tokens (`<bos><|turn>user\n` … `<turn|>\n`) |
+| Image view | **256–266 soft tokens + 2 delimiters** (resolution-dependent; `max_soft_tokens: 280` is a ceiling, not a constant — budget 280, expect ~268) |
+| Audio view | **exactly 25 soft tokens/sec** (40 ms/token, 16 kHz) + 2 delimiters |
+| Interleaved | exact sum of parts — zero separator overhead |
+| Payload forms | path, http(s) URL, base64, PIL.Image, raw numpy (audio presumed 16 kHz) |
+
+**Hard rules the measurements force:**
+- **Audio views ≤ 30 s.** The model's `audio_seq_length` is 750 tokens but the
+  processor does NOT truncate (a 45 s clip emits 1125 audio tokens and would
+  blow past the audio tower's budget at forward time). The validator enforces
+  the cap; longer sources get clipped or split at mining time.
+- **CAS audio is stored 16 kHz mono WAV.** Raw numpy arrays are presumed
+  16 kHz by the processor; storing anything else invites silent resample bugs.
 
 ## Exposure schema (what shards actually contain)
 

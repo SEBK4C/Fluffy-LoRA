@@ -1,0 +1,76 @@
+{
+  "snapshot": "0e2b1058541244490925fbacf8972041435691ac",
+  "processor_class": "Gemma4UnifiedProcessor",
+  "cases": {
+    "turn_overhead_tokens": 6,
+    "text_view": {
+      "total": 28,
+      "body": 22
+    },
+    "image_views": {
+      "320x240": {
+        "total": 274,
+        "image_soft_tokens": 266,
+        "wrapper_tokens": 2
+      },
+      "640x480": {
+        "total": 274,
+        "image_soft_tokens": 266,
+        "wrapper_tokens": 2
+      },
+      "896x896": {
+        "total": 264,
+        "image_soft_tokens": 256,
+        "wrapper_tokens": 2
+      },
+      "1600x1200": {
+        "total": 274,
+        "image_soft_tokens": 266,
+        "wrapper_tokens": 2
+      },
+      "wide_1600x400": {
+        "total": 272,
+        "image_soft_tokens": 264,
+        "wrapper_tokens": 2
+      }
+    },
+    "audio_views": {
+      "1s": {
+        "total": 33,
+        "audio_soft_tokens": 25,
+        "tokens_per_sec": 25.0
+      },
+      "5s": {
+        "total": 133,
+        "audio_soft_tokens": 125,
+        "tokens_per_sec": 25.0
+      },
+      "10s": {
+        "total": 258,
+        "audio_soft_tokens": 250,
+        "tokens_per_sec": 25.0
+      },
+      "30s": {
+        "total": 758,
+        "audio_soft_tokens": 750,
+        "tokens_per_sec": 25.0
+      },
+      "45s": {
+        "total": 1133,
+        "audio_soft_tokens": 1125,
+        "tokens_per_sec": 25.0
+      }
+    },
+    "interleaved_view": {
+      "total": 423,
+      "image_soft": 266,
+      "audio_soft": 125,
+      "text_body": 22,
+      "sum_of_single_view_totals_minus_shared_overhead": 423
+    },
+    "bare_content_array": "REJECTED: UndefinedError: 'dict object' has no attribute 'role'",
+    "cas_ref_unresolved": "REJECTED: ValueError: Incorrect image source. Must be a valid URL starting with `http://` or `https://`, a valid path to an image file, or a base64 encoded string. Got cas://deadbeef. Failed with Inva"
+  },
+  "rendered_text_view": "<bos><|turn>user\nA red fox pauses on a frost-covered stone wall at dawn, its breath visible in the cold air.<turn|>\n",
+  "decoded_interleaved_head": "<bos><|turn>user\n<|image><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|><|image|>"
+}
