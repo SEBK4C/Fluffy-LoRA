@@ -1,0 +1,108 @@
+# TRAINING-CHECKLIST — v1 safety + v2 deltas from current state
+
+Verified against the live rig 2026-07-11 ~17:30Z (training alive: step 1400,
+loss 1.66, both GPUs 100%). Checkboxes are the delta between what runs today
+and what v2 needs. Owner: builder window, except section A (Opus watch).
+
+## A. v1 run — checkpoint disk (act BEFORE ~day 12) ⚠️
+
+Measured reality: the trainer writes checkpoints to its home dir on the rig's
+**root filesystem — 455G, 84% full, 74G free**. Cadence ~131MB every ~30min ≈
+6.3GB/day → **root fs hits full at ~day 12 of 14**. A full root disk doesn't
+just kill the run, it can wedge the whole machine.
+
+- [ ] **Replace calendar "day-12 prune" with continuous rolling retention**,
+      applied at every watch firing: keep ALL ratchet-KEPT + last 3 + one per
+      12h; delete the rest. Steady state ≈ 5GB. Alert if root fs > 90%.
+      **GATE: Sebastian types "prune policy approved" → watch amends
+      OPERATOR-HANDOVER and starts pruning.**
+- [ ] Do NOT move the checkpoint dir mid-run (that would touch the trainer).
+      v2 fixes the location properly.
+- [ ] Known quirk, no action: v1's schedule is sized for 200k steps but the
+      window yields ~56k (~21.4s/step measured) — lr never leaves
+      warmup/near-peak, cosine never anneals. v1 is a data-throughput run,
+      not a schedule-complete run. v2 must size STEPS to the window.
+
+## B. v2 trainer deltas (from current train.py)
+
+- [ ] Full multimodal model — drop the `.language_model` strip; vision/audio
+      towers frozen; LoRA targets unchanged (A1/A3/A4 smokes on the 3080 Ti)
+- [ ] Alternating single-modality-lane batches, DDP-safe (A6: 20-step smoke)
+- [ ] STEPS sized to the real window from measured step-time (re-measure with
+      image batches — they're slower); cosine anneals to the actual end
+- [ ] `save_dir` → the rig's big SSD mount (1.3T free), never the root fs
+- [ ] Atomic saves (write tmp, rename); save optimizer + scheduler + data
+      cursor so the run is resumable
+- [ ] **Resume test before the swap: kill -9 at step ~50, resume, verify loss
+      continuity** — the single cheapest insurance in long-run training
+- [ ] Rolling retention built into the trainer (same policy as §A) + disk
+      watermark guard: >90% → pause saves and alert, never crash
+- [ ] NaN / loss-spike tripwire: halt-and-alert, don't save poisoned ckpts
+- [ ] Auto-restart wrapper (systemd or tmux loop) with restart cap; every
+      restart gets a ledger line
+
+## C. Data — rig-local serving (network independence)
+
+- [ ] ALL training shards on the rig's 5TB HDD pool (4.5T free, verified)
+      BEFORE the swap; zero network mounts in the training loop
+- [ ] sha256 manifest per tar shard; verify after rsync, before the gate
+- [ ] READBACK GATE: 2-min dummy-DataLoader bench must sustain 10× the needed
+      samples/s from the HDD
+- [ ] Dataloader skips + logs corrupt samples — one bad shard must never kill
+      day 9 of the run
+- [ ] Verify base-model weights + tokenizer/processor are rig-local too
+
+## D. Teacher upgrade — Qwen3-VL-Embedding-8B ✅ verified real
+
+`Qwen/Qwen3-VL-Embedding-8B` exists (official, 1.3M downloads), text+image
+multimodal embedding, sentence-transformers + GGUF community quants available.
+The 2B sibling is a throughput option for bulk mining.
+
+- [ ] Download 8B (and 2B); smoke the embedding path on the 3080 Ti
+      (sentence-transformers first; GGUF/llama.cpp as fallback)
+- [ ] **Re-derive similarity band thresholds on ~1k samples — the old text
+      teacher's 0.75–0.92 band does NOT transfer to a different model's
+      sim distribution**
+- [ ] Keep v001's existing pairs as mined (old teacher); no retroactive
+      re-banding of frozen assets
+- [ ] Mine image↔text bands + ANN hard negatives with the VL teacher
+- [ ] Audio: accept there is NO tri-modal embedding teacher — audio lanes use
+      dataset ground truth + constructed negatives (§E)
+
+## E. Tri-modal cards (proposed scheme: text + image + audio per card)
+
+Adaptation map for datasets we already have:
+
+| Source | Text | Image | Audio |
+|---|---|---|---|
+| v001 cards (40,941) | native | rendered card (typographic) | TTS multi-voice |
+| MMEB | native | native (real photos) | TTS of caption |
+| ColPali / VisRAG | query | native (real pages) | TTS of query |
+| LibriSpeech / MLS | transcript | rendered transcript | **native (real speech)** |
+| FSD50K | labels | — | **native (real env sound)** |
+
+- [ ] Kokoro multi-voice TTS pipeline (already in-house from the gemma4 work)
+- [ ] Anti-shortcut rules: ≥~35% of audio exposure is REAL audio;
+      same-voice-different-text = hard NEGATIVE (kills the TTS-voice
+      shortcut); same-text-different-voice = positive (voice invariance);
+      real photos stay dominant over rendered-text images in the image lane
+- [ ] Hard negatives per modality: text = teacher band; image = VL-teacher
+      ANN; audio = constructed pairs above
+- [ ] Provenance columns on every row; media by CAS sha256 (rights gate
+      SIGNOFF-001 unchanged — training yes, release gated)
+
+## F. Eval integrity (so we don't fool ourselves)
+
+- [ ] Per-lane FROZEN eval sets with REAL media on at least one side —
+      a synthetic-only audio eval would measure the TTS shortcut, not hearing
+- [ ] Fresh per-lane baselines BEFORE the swap → `ckpt-ratchet-v2.json`
+- [ ] G0 text eval stays byte-frozen, results comparable across v1/v2
+
+## G. Rig hygiene for 14 unattended days
+
+- [ ] Disable unattended-upgrades / kernel + driver auto-updates for the
+      window (a mid-run driver bump is a classic run-killer)
+- [ ] Audit cron/systemd timers + docker for anything that grabs GPU or
+      writes the root fs
+- [ ] Watch firing checklist gains: df on all three storage tiers
+- [ ] THE SWAP stays hard-gated on Sebastian typing **"restart approved"**
