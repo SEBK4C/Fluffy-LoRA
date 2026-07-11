@@ -68,9 +68,11 @@ just kill the run, it can wedge the whole machine.
 - [ ] sha256 manifest per tar shard; verify after rsync, before the gate
 - [ ] READBACK GATE: 2-min dummy-DataLoader bench must sustain 10× the needed
       samples/s from the HDD
-      — ALIGN 2026-07-11: harness DEPLOYED to rig (big-SSD fluffy/readback_gate.py,
-      4 prefetch workers, corrupt-skip) + self-tested end-to-end on dummy shards;
-      real run pending shards + the /pool-5tb staging-home root blocker (T9 22:41Z)
+      — ALIGN 2026-07-11 22:49Z: PASS on real text-v001 shards (28 tars,
+      sha-verified on rig): sustained 33,240 samples/s @ 44.9 MB/s over 120s,
+      4 prefetch workers — 554× the 60 sps requirement. Caveat: big-SSD shard
+      home tonight (pool-5tb home root-blocked, T9 22:41Z), warm-cache small
+      set — HDD RE-GATE required when shards migrate to the 5TB pool
 - [ ] Dataloader skips + logs corrupt samples — one bad shard must never kill
       day 9 of the run
 - [x] Verify base-model weights + tokenizer/processor are rig-local too
