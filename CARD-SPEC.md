@@ -19,21 +19,27 @@ Where the draft disagreed with the processor, the processor won.
 
 ## Card schema (JSONL, one card per line; media by CAS ref, never inline)
 
+Normative schema: `cardkit/card.schema.json` (JSON Schema 2020-12), enforced
+by `cardkit/validate_card.py`. A real, gate-passed example card:
+`cardkit/example_card.json`. Shape:
+
 ```json
 {
   "card_id": "flf-000123",
   "anchor_text": "canonical semantic statement of the card",
   "views": {
     "text":  {"content": [{"type": "text", "text": "..."}],
-              "source": "real|synthetic", "origin": "v001|mmeb|colpali|librispeech|fsd50k"},
+              "source": "real|synthetic", "origin": "v001|mmeb|colpali|librispeech|fsd50k|...",
+              "native_id": "id within the source"},
     "image": {"content": [{"type": "image", "image": "cas://<sha256>"}],
               "source": "real|rendered|genai",
-              "gen": {"model": null, "version": null},
-              "gate": {"roundtrip_sim": 0.83, "pass": true}},
+              "gen": {"model": "pil-typographic-card", "version": "v1"},
+              "gate": {"roundtrip_sim": 0.83, "ocr": "rapidocr", "pass": true}},
     "audio": {"content": [{"type": "audio", "audio": "cas://<sha256>"}],
               "source": "real|tts",
-              "gen": {"model": "kokoro", "voice": "af_heart"},
-              "gate": {"asr_wer": 0.04, "pass": true}}
+              "gen": {"model": "kokoro-82m-gguf", "voice": "af_heart"},
+              "gate": {"asr_wer": 0.04, "roundtrip_sim": 0.97, "pass": true}},
+    "audio-alt-voice": {"...": "alt renditions are extra keys: modality prefix + suffix"}
   },
   "interleaved": [
     {"recipe": "c1-permute",
@@ -47,11 +53,30 @@ Where the draft disagreed with the processor, the processor won.
     "audio": [{"card_id": "flf-000123", "view": "audio-alt-voice",
                "miner": "same-voice-diff-text"}]
   },
-  "rights": {"tier": "cc-by|source_audit_required|self-synthetic",
-             "source_sha256": "...", "audit": "pending|clear"},
-  "dedup": {"protocol": "v1", "hash": "..."}
+  "rights": {"tier": "source_audit_required", "license": "...",
+             "audit": "pending|clear", "redistribution_ok": false},
+  "dedup": {"protocol": "anchor-sha256-v1", "hash": "<sha256>"}
 }
 ```
+
+Schema decisions the reference build forced (v0.1 → v0.2):
+- **`views` is a named map, not a fixed 3-key object.** Alt renditions
+  (`audio-alt-voice` — the same-text-different-voice positive and the
+  same-voice-different-text negative both need one) don't fit 3 fixed keys.
+  Canonical keys `text`/`image`/`audio` are the default exposure views;
+  suffixed keys (`^(text|image|audio)-[a-z0-9-]+$`) are alt renditions.
+- **`rights.tier` uses CORPUS-ACQ's existing enum** (`commercial`,
+  `commercial_after_attribution`, `source_audit_required`, `research_only`,
+  `evaluation_only`, `quarantine`) instead of v0.1's invented three-value
+  enum — one rights vocabulary across programs, and SIGNOFF-001 semantics
+  carry over unchanged.
+- **`source` covers the whole E0 fill matrix**: `real | synthetic |
+  rendered | tts | genai | captioned | asr`. Every non-`real`/`synthetic`
+  view MUST carry `gen` + a passing `gate` (validator-enforced; a failed
+  gate never ships — the asset is dropped or regenerated, the card keeps
+  its other views).
+- **`native_id`** per view: provenance back to the source dataset row
+  (utterance id, image filename, v001 card id).
 
 Why `content` arrays: that is gemma-4's native chat-template item format
 (`{"type": "text"|"image"|"audio", ...}`). The training collate is:
@@ -135,7 +160,10 @@ the paper needs anyway. Real media on at least one side of every eval pair
 
 - Cards: JSONL manifests on pool-ssd (append-only, versioned card-v2.jsonl).
 - Media: CAS by sha256 (existing CORPUS-ACQ discipline; generated media get
-  their own CAS namespace + generator provenance).
+  their own CAS namespace + generator provenance). Reference layout
+  (implemented): `$FLUFFY_CARDS_ROOT/cas/sha256/<2-prefix>/<sha>`, manifests
+  under `golden/` and `pilot/`. CAS audio is 16 kHz mono WAV (hard rule
+  above); images keep their source encoding.
 - Shards: WebDataset tars = exposures + referenced media co-packed, staged
   rig-local (checklist §C gates unchanged).
 ```
