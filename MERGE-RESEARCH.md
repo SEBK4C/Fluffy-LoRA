@@ -53,13 +53,35 @@ L2-normalize each prefix at use time.
 - Precedent: OpenAI text-embedding-3, Gemini Embedding, Qwen3-Embedding all
   ship MRL truncation.
 
-**C. Cards embed SEPARATE-STREAM, not interleaved.**
-Omni-Embed-Nemotron's key retrieval finding: encoding audio/video streams
-separately beats TMRoPE-interleaved fusion for retrieval. For tri-modal
-cards: each modality lane of a card is encoded on its own; cross-modal
-alignment happens in the loss (positives across lanes of the same card),
-not by fusing modalities into one encode call. Interleaved/joint encodes
-are a later experiment, not the v2 base.
+**C. Card encoding: single-modality views are the BULK; interleaved views
+are a first-class MINORITY lane (CORRECTED 2026-07-12).**
+First writing of this section over-generalized Omni-Embed-Nemotron: their
+separate-stream finding is scoped to **time-synchronized audio+video TMRoPE
+interleaving** — we have no video lane, so it barely applies. The stronger
+fact cuts the other way: **Gemma 4 was pretrained on interleaved modalities
+under a fixed ordering convention (image BEFORE text, audio AFTER text),
+and the 12B is Google's unified encoder-free variant ingesting raw
+audio/image patches** (Gemma 4 tech report, 2607.02770). Interleaved
+sequences are the backbone's native pretraining distribution; an embedding
+recipe that never shows it interleaved input throws that away. Gemini
+Embedding 2, BidirLM, and ATIR all embed interleaved.
+- Bulk of v2 base exposures: canonical single-modality views (where teacher
+  supervision and negative bands are well-defined).
+- Interleaved exposures (incl. permutation negatives): minority lane in the
+  v2 base mix, document-style, exact share re-derived at pilot.
+- **Hard rule for interleaved views: follow the pretraining ordering
+  convention — image → text → audio.**
+
+**C2. PROPOSED (v2-recipe ablation, not card-spec): GRIT-style auxiliary
+generative loss.** GRIT (arXiv 2402.09906, ICLR 2025; GritLM-7B) trains
+generative next-token + contrastive embedding jointly at no loss to either;
+LCO's Generation-Representation Scaling Law is the matching theory
+(generative capability upper-bounds representation quality). Applied to
+Fluffy: a small next-token term on the SAME interleaved cards alongside
+InfoNCE would preserve the backbone's native interleaved competence instead
+of letting contrastive-only training erode it. No multimodal GRIT exists in
+the literature — same open-row situation as our main recipe. Cost: one
+extra loss term, same data; needs an A-series smoke before it earns a place.
 
 **D. Instruction prompts at encode time.**
 Field standard (Qwen3-Embedding, LCO, BidirLM all do it). v2's embedding fn

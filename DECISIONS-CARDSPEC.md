@@ -60,20 +60,21 @@ yes/no?
 carried it; TTS of boilerplate fails round-trip and the boilerplate is task
 noise, not semantics). yes/no?
 
-## H. Separate-stream base training (added from MERGE-RESEARCH §2C, 2026-07-11)
+## H. Interleaved views + mining metadata (AMENDED 2026-07-12 — supersedes
+## the earlier "separate-stream" wording; see MERGE-RESEARCH §2C corrected)
 
-Ratified architecture: v2 base training encodes each modality lane
-SEPARATELY; cross-modal alignment happens in the loss, not by fusing
-modalities into one encode (Omni-Embed-Nemotron finding: interleaving hurts
-retrieval). Spec impact, all small:
+The earlier draft of this item demoted interleaved exposures based on an
+over-generalized reading of Omni-Embed-Nemotron (their finding is scoped to
+time-synced audio+VIDEO interleaving — we have no video). Corrected
+position, per Gemma 4 tech report (interleaved pretraining, ordering
+convention, 12B = unified encoder-free):
 
-- `interleaved` card field STAYS in the schema (cheap, just content arrays)
-  — but interleaved-view exposures, **including the permutation negative in
-  the contrast taxonomy, move OUT of the v2 base exposure mix** into the
-  "later ablation" bucket. (Honest tension: ATIR's interleave recipe cuts
-  the other way — that's exactly what the ablation is for.)
-- Exposure schema gains nothing; canonical single-modality views are
-  already the default.
+- Interleaved exposures (incl. permutation negatives) STAY in the v2 base
+  mix as a first-class MINORITY lane; single-modality views remain the
+  bulk. Exact share re-derived at pilot, builder-side.
+- **New hard rule for interleaved views: modality order = image → text →
+  audio** (Gemma 4's pretraining convention: image before text, audio
+  after text). Validator should enforce it.
 - Mined-negative metadata: record the band rule as **TopK-PercPos — per
   query, negative ceiling = 0.95 × that query's positive sim** (NV-Retriever
   false-negative filter, MERGE-RESEARCH §2E), not a global band constant.

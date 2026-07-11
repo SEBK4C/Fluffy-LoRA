@@ -36,7 +36,9 @@ just kill the run, it can wedge the whole machine.
 > building**: causal attention + last-token pooling stays (bidir CLOSED on
 > 2026 SOTA evidence, not just parked); output = native 4096-dim, NO
 > projection head, MRL ladder 4096→2048→1024→512→256 (2048 rung = field
-> comparability); cards encode separate-stream, not interleaved; instruction
+> comparability); card exposures = single-modality bulk + interleaved
+> MINORITY lane, interleaved order image→text→audio (CORRECTED 2026-07-12,
+> MERGE-RESEARCH §2C — GRIT-style aux generative loss proposed §C2); instruction
 > prefix at encode time (byte-match train/eval); TopK-PercPos 95%
 > false-negative filter in all teacher mining (§D re-banding).
 
