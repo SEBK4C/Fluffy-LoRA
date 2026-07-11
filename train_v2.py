@@ -630,10 +630,15 @@ def main() -> None:
             loss = mrl_infonce(a, p, n, rungs, rank, world) / ACCUM
             loss.backward()
             step_loss += loss.item()
-        if world > 1:  # explicit LoRA-grad sync (see module docstring)
-            for prm in trainable:
-                if prm.grad is not None:
-                    dist.all_reduce(prm.grad, op=dist.ReduceOp.AVG)
+        if world > 1:  # explicit LoRA-grad sync (see module docstring):
+            # one flat all_reduce (~80 MB) instead of ~700 tiny ones
+            grads = [prm.grad for prm in trainable if prm.grad is not None]
+            flat = torch.cat([g.reshape(-1) for g in grads])
+            dist.all_reduce(flat, op=dist.ReduceOp.AVG)
+            off = 0
+            for g in grads:
+                g.copy_(flat[off:off + g.numel()].view_as(g))
+                off += g.numel()
         gnorm = torch.nn.utils.clip_grad_norm_(trainable, 1.0)
         opt.step()
         sched.step()

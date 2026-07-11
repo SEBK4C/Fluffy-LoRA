@@ -18,6 +18,8 @@ PY="${FL_PY:-$DIR/venv/bin/python}"
 # real path is never committed (public repo: no tailnet names in paths).
 export FL_OUT="${FL_OUT:-/mnt/big-ssd/fluffy/checkpoints-v2}"
 CAP="${FL_RESTART_CAP:-5}"
+# 14-day fragmentation guard (long-lived allocator, variable seq lengths)
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 LEDGER="$FL_OUT/run-ledger.log"
 LOG_DIR="${FL_LOG_DIR:-$FL_OUT/logs}"
 mkdir -p "$FL_OUT" "$LOG_DIR"
