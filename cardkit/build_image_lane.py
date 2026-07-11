@@ -65,16 +65,16 @@ MINER = "vl-ann-v1"
 CAL_N = 1000             # calibration sample size
 CAP_LEN = (20, 600)      # caption length filter (chars)
 
-# subset -> (card prefix, i2t instruction, t2i instruction)
+# ORCH ruling (T9, 2026-07-12): the image-lane baseline was measured with
+# the query-side instruction EXACTLY "Retrieve the matching description."
+# — every exposure in BOTH lanes carries it verbatim (matches the text
+# shards); a different string would force a re-baseline.
+INSTRUCTION = "Retrieve the matching description."
+
+# subset -> card_id prefix
 SUBSETS = {
-    "MSCOCO_i2t": (
-        "imgc",
-        "Find an image caption describing the given everyday image.",
-        "Find me an everyday image that matches the given caption."),
-    "VisualNews_i2t": (
-        "imgn",
-        "Find a caption for the news in the given photo.",
-        "Retrieve an image of this news caption."),
+    "MSCOCO_i2t": "imgc",
+    "VisualNews_i2t": "imgn",
 }
 
 t0 = time.time()
@@ -120,7 +120,7 @@ def cmd_extract() -> None:
     stats: dict[str, collections.Counter] = {}
 
     import cardlib
-    for subset, (prefix, _, _) in SUBSETS.items():
+    for subset, prefix in SUBSETS.items():
         st = stats[subset] = collections.Counter()
         pf = pq.ParquetFile(os.path.join(
             SRC_MMEB, subset, "train-00000-of-00001.parquet"))
@@ -425,23 +425,23 @@ def cmd_mine() -> None:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
     # ---- exposures: both lanes from every card ----
-    inst = {p["card_id"]: SUBSETS[p["subset"]] for p in pairs}
+    # instruction is the baseline-locked VERBATIM string in both lanes
+    # (ORCH ruling — see INSTRUCTION above)
     exposures = []
     for c in cards:
         cid = c["card_id"]
-        _, i2t_inst, t2i_inst = inst[cid]
         exposures.append({
             "anchor": {"card": cid, "view": "image"},
             "positive": {"card": cid, "view": "text"},
             "negatives": [{"card": g["card_id"], "view": "text"}
                           for g in c["negatives"]["text"]],
-            "lane": "image2text", "instruction": i2t_inst})
+            "lane": "image2text", "instruction": INSTRUCTION})
         exposures.append({
             "anchor": {"card": cid, "view": "text"},
             "positive": {"card": cid, "view": "image"},
             "negatives": [{"card": g["card_id"], "view": "image"}
                           for g in c["negatives"]["image"]],
-            "lane": "text2image", "instruction": t2i_inst})
+            "lane": "text2image", "instruction": INSTRUCTION})
     for lane in ("image2text", "text2image"):
         path = os.path.join(OUT_ROOT, f"exposures-{lane}-v001.jsonl")
         with open(path, "w") as f:
@@ -582,7 +582,7 @@ def cmd_pack() -> None:
     report = {
         "built_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "src": "TIGER-Lab/MMEB-train @ 76dd0a4 (CORPUS-ACQ fetch)",
-        "subsets": {s: SUBSETS[s][0] for s in SUBSETS},
+        "subsets": dict(SUBSETS),
         "extract_stats": stats,
         "eval_contamination_guard": "ALL val2014 members excluded + "
                                     "image-eval-v1 native_id basenames",
