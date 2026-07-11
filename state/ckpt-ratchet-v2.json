@@ -1,0 +1,144 @@
+{
+  "series": "v2",
+  "created": "2026-07-11T23:10:11Z",
+  "model": "google/gemma-4-12b-it",
+  "snapshot": "0e2b1058541244490925fbacf8972041435691ac",
+  "quant": "nf4-double-bf16 (ratchet_eval-identical)",
+  "eps_rule": "per lane: eps = max(2*sigma, 0.002); pointer advances only if lane r1 - best_r1 > eps (kept-only, ratchet_eval semantics)",
+  "lanes": {
+    "text": {
+      "eval": "G0",
+      "pin": "a6bc914be00afa15498580180e0633738d0c98a091938b611bf0764f56ef0761",
+      "baseline": {
+        "r1": 0.008,
+        "r5": 0.0213
+      },
+      "sigma": 0.0,
+      "eps": 0.002,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "protocol": "ratchet_eval.py UNCHANGED (language_model strip, tokenizer-only, no instruction) \u2014 continuity with v1 on-record baseline; rerun 2026-07-11T22:59:25Z reproduced r1/r5 exactly (secs 236.6); sigma 0.0 on record from 3 v1 re-evals"
+    },
+    "image": {
+      "eval": "image-eval-v1",
+      "pin": "e14bb818a0bdc1184efe4d18313e8cafd4a25a2319ffd8794bb79031973f9a77",
+      "baseline": {
+        "i2t": {
+          "r1": 0.004,
+          "r5": 0.016
+        },
+        "t2i": {
+          "r1": 0.002,
+          "r5": 0.012
+        }
+      },
+      "sigma": 0.0,
+      "sigma_detail": {
+        "i2t_r1": 0.0,
+        "t2i_r1": 0.0
+      },
+      "eps": 0.002,
+      "n_pairs": 500,
+      "protocol": "baseline_image_eval.py \u2014 FULL multimodal model (no strip), processor chat-template with role wrapper, cas:// resolved to local paths, lastpos (mask*arange).argmax pooling (train_v2 byte-match), text clip 2000 chars, query-side instruction prefix only",
+      "instruction": "Retrieve the matching description.",
+      "instruction_note": "query-side only, prepended text item (train_v2 anchor construction, FL_INSTRUCT=1); image-lane exposure string NOT yet frozen at baseline time \u2014 CARD-SPEC schema string used",
+      "runs": [
+        {
+          "rep": 0,
+          "i2t": {
+            "r1": 0.004,
+            "r5": 0.016
+          },
+          "t2i": {
+            "r1": 0.002,
+            "r5": 0.012
+          },
+          "secs": {
+            "img_q": 89.3,
+            "img_p": 90.0,
+            "txt_q": 12.0,
+            "txt_p": 10.7,
+            "total": 202.1
+          },
+          "emb_checksum": {
+            "img_q": -516.025146,
+            "img_p": -470.547089,
+            "txt_q": -114.185242,
+            "txt_p": -371.55249
+          },
+          "ts": "2026-07-11T23:03:03Z"
+        },
+        {
+          "rep": 1,
+          "i2t": {
+            "r1": 0.004,
+            "r5": 0.016
+          },
+          "t2i": {
+            "r1": 0.002,
+            "r5": 0.012
+          },
+          "secs": {
+            "img_q": 87.4,
+            "img_p": 87.9,
+            "txt_q": 11.7,
+            "txt_p": 10.7,
+            "total": 197.7
+          },
+          "emb_checksum": {
+            "img_q": -516.025146,
+            "img_p": -470.547089,
+            "txt_q": -114.185242,
+            "txt_p": -371.55249
+          },
+          "ts": "2026-07-11T23:06:20Z"
+        },
+        {
+          "rep": 2,
+          "i2t": {
+            "r1": 0.004,
+            "r5": 0.016
+          },
+          "t2i": {
+            "r1": 0.002,
+            "r5": 0.012
+          },
+          "secs": {
+            "img_q": 86.9,
+            "img_p": 89.1,
+            "txt_q": 11.8,
+            "txt_p": 10.7,
+            "total": 198.5
+          },
+          "emb_checksum": {
+            "img_q": -516.025146,
+            "img_p": -470.547089,
+            "txt_q": -114.185242,
+            "txt_p": -371.55249
+          },
+          "ts": "2026-07-11T23:09:39Z"
+        }
+      ],
+      "report": "logs/baseline-image-v2-20260711T225941Z.json",
+      "versions": {
+        "transformers": "5.13.1",
+        "torch": "2.13.0+cu130"
+      },
+      "secs_per_run": [
+        202.1,
+        197.7,
+        198.5
+      ],
+      "img_batch": 2
+    },
+    "audio": {
+      "eval": "audio-eval-v1",
+      "pin": "fe4b83d17e7d6af34c4c05aefc57b2144a7a349c611a1c5991c850fe9785dbce",
+      "baseline": null,
+      "note": "NOT a tonight-gate \u2014 lane enters day-2/3 (ORCH 22:47Z); baseline before audio lanes join FL_LANES"
+    }
+  },
+  "best_checkpoint": "none",
+  "kept": [],
+  "rejected": []
+}
