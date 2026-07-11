@@ -55,9 +55,12 @@ transferable, and is our G0 eval trustworthy?"
   hidden state, last-token pooling, L2 norm, maxlen 512.
 - Tasks (small, fits hours not days): retrieval SciFact + NFCorpus +
   FiQA2018; STS: STSBenchmark + STS17(en). Add our frozen G0 for continuity.
-- Three contenders on identical harness: (a) base gemma-4-12b-it,
-  (b) base + fluffy-text-v0, (c) reference: Qwen3-Embedding-8B teacher.
-  Optional stretch: step-1196 on one task (does later training help?).
+- Four contenders on identical harness: (a) base gemma-4-12b-it,
+  (b) base + fluffy-text-v0, (c) **base + fluffy-text-v0 at HALF adapter
+  strength** (scale the LoRA delta by 0.5 at load — free anti-forgetting
+  probe, analogue of BidirLM's 50% base-merge trick), (d) reference:
+  Qwen3-Embedding-8B teacher. Optional stretch: step-1196 on one task
+  (does later training help?).
 - Quantization-skew probe: repeat ONE task on the PVE 3080 Ti NF4 eval
   station — how much does NF4 shift scores? (Decides how much to trust the
   eval station for v2.)
@@ -74,6 +77,10 @@ transferable, and is our G0 eval trustworthy?"
 - (e) Throughput (samples/s, per task wall-time) → budget v2's eval cadence.
 - (f) From train.log postmortem: lr never left warmup (STEPS=200k vs ~56k
   achievable) — quantify what schedule v2 should use.
+- (g) Does half-strength (contender c) beat full strength anywhere? If yes
+  → contrastive training is eroding base abilities → v2 should consider
+  merge-back/regularization. Another free G0-diagnostic: if 0.5× helps on
+  MTEB but not G0, that again points at G0.
 
 ## 6. Report + hygiene
 

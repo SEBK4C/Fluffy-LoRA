@@ -126,6 +126,24 @@ Adaptation map for datasets we already have:
       ANN; audio = constructed pairs above
 - [ ] Provenance columns on every row; media by CAS sha256 (rights gate
       SIGNOFF-001 unchanged — training yes, release gated)
+- [ ] **Lane mix starting point: 65% text / 17.5% image / 17.5% audio** —
+      adopted from BidirLM-Omni's published recipe (MAEB rank-3 on ~300K
+      audio-text pairs proves the audio lane is winnable at our data scale).
+      Supersedes the earlier invented 40-50/30-35/15-25 target as the START;
+      re-derive after the 200-sample pilot stays in force.
+- [ ] Wave-2 audio candidate: **Laion-Audio-300M** (env-sound↔text,
+      complements FSD50K) — VERIFY name/availability/rights first and
+      acquire through CORPUS-ACQ conventions (sample a slice, not 300M);
+      not in the CAS today.
+
+### Parked (real but NOT low-hanging — do not chase in this window)
+
+- Bidirectional attention + MNTP conversion (BidirLM's recipe): their own
+  ablation shows contrastive training is the dominant term (contrastive
+  alone beats Bi+MNTP by 13+ MTEB points; bidir adds +0.8–9 on specific
+  tasks). For our 12B it means retraining attention behavior, switching
+  pooling, and breaking comparability with fluffy-text-v0/G0. Revisit
+  after the window if v2 plateaus.
 
 ## F. Eval integrity (so we don't fool ourselves)
 
