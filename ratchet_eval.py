@@ -52,7 +52,7 @@ def main() -> None:
                                      attn_implementation="eager")
     if hasattr(base, "language_model"):
         base = base.language_model
-    model = PeftModel.from_pretrained(base, args.ckpt)
+    model = base if args.ckpt in ("none", "base") else PeftModel.from_pretrained(base, args.ckpt)
     model.eval()
     dev = torch.device(args.device if torch.cuda.is_available() or "cpu" in args.device else "cpu")
     model.to(dev)
