@@ -84,7 +84,9 @@ def load_speech(source: str):
                     rows.append(json.loads(line))
                 except json.JSONDecodeError:
                     continue
-    # deterministic order + ids
+    # dedup by native_id (LAST wins — torn/duplicate appends from killed
+    # extractors), then deterministic order + ids
+    rows = list({r["native_id"]: r for r in rows}.values())
     rows.sort(key=lambda r: r["native_id"])
     for i, r in enumerate(rows):
         r["card_id"] = f"flf-{prefix}-{i:07d}"
@@ -107,6 +109,7 @@ def load_fsd50k():
     lp = os.path.join(AUDIO_ROOT, "fsd50k", "licenses.json")
     if os.path.exists(lp):
         lic_map = json.load(open(lp))
+    rows = list({r["native_id"]: r for r in rows}.values())
     rows.sort(key=lambda r: r["native_id"])
     for i, r in enumerate(rows):
         r["card_id"] = f"flf-afsd-{i:07d}"
@@ -198,18 +201,38 @@ def build(source: str, force: bool = False) -> None:
     n = len(rows)
     log(f"{source}: {n} rows, task_type {task_type}")
 
-    # ---- teacher embeddings of the text side ----
+    # ---- teacher embeddings of the text side (slice-resumable) ----
     emb_path = os.path.join(out_dir, "emb-text.npy")
     if os.path.exists(emb_path):
         emb = np.load(emb_path).astype(np.float32)
         assert emb.shape[0] == n, "stale emb cache — rerun with --force"
         log(f"{source}: text embeddings loaded from cache")
     else:
-        emb = lib.embed([r["text"] for r in rows], tag="audio-build")
-        np.save(emb_path + ".tmp.npy", emb.astype(np.float16))
-        os.replace(emb_path + ".tmp.npy", emb_path)
-        emb = emb.astype(np.float32)
-        log(f"{source}: embedded {n} texts")
+        parts_dir = os.path.join(out_dir, "emb-parts")
+        os.makedirs(parts_dir, exist_ok=True)
+        SLICE = 8192
+        parts = []
+        for s in range(0, n, SLICE):
+            pp = os.path.join(parts_dir, f"part-{s:08d}.npy")
+            if os.path.exists(pp):
+                try:
+                    a = np.load(pp)
+                    if a.shape[0] == min(SLICE, n - s):
+                        parts.append(a)
+                        continue
+                except Exception:  # torn part from a kill -> redo
+                    pass
+            a = lib.embed([r["text"] for r in rows[s:s + SLICE]],
+                          tag="audio-build").astype(np.float16)
+            np.save(pp + f".tmp.{os.getpid()}.npy", a)
+            os.replace(pp + f".tmp.{os.getpid()}.npy", pp)
+            parts.append(a)
+            log(f"{source}: embedded slice {s}-{s+len(a)}/{n}")
+            lib.update_state(src_name, encoded_upto=s + len(a))
+        emb = np.vstack(parts).astype(np.float32)
+        np.save(emb_path + f".tmp.{os.getpid()}.npy", emb.astype(np.float16))
+        os.replace(emb_path + f".tmp.{os.getpid()}.npy", emb_path)
+        log(f"{source}: embedded {n} texts (cache written)")
     lib.update_state(src_name, encoded=True, rows=n)
 
     # ---- global TEXT negatives (teacher band, ceiling 0.95) ----
