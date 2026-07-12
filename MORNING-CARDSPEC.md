@@ -16,7 +16,10 @@ two actions that are yours, then the inventory.
 2. **Swap review**: the 06:00Z decision is the orchestrator's lane —
    check T9-STATUS for the outcome. Post-swap, my queue is: 665-clip
    overlength recovery batch (re-synth at 1.15×), FLUX streaming from the
-   3080 Ti per §E0.1, and the multilingual (es/de/fr) audio wave if wanted.
+   3080 Ti per §E0.1, the multilingual (es/de/fr) audio wave if wanted
+   (~17.5k more cards, Supertonic is 31-lang), and a same-text-different-
+   voice alt-rendition pass (~10% of cards) for the §E voice-invariance
+   positives the exposure sampler will want.
 
 ## Inventory (mining lane)
 
