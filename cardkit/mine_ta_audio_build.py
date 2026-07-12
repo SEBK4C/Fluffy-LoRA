@@ -375,6 +375,10 @@ def build(source: str, force: bool = False) -> None:
     # ---- bulk validate ----
     schema = json.load(open(os.path.join(HERE, "card.schema.json")))
     known_ids = set(c["card_id"] for c in cards)
+    # cardlib binds FLUFFY_CARDS_ROOT at import time — patch the module
+    # var directly or every in-process resolve_cas uses the default root
+    # (the CLI gate is a subprocess and got the env; bulk must match)
+    cardlib.ROOT = cas_root
     os.environ["FLUFFY_CARDS_ROOT"] = cas_root
     errs = []
     for i, c in enumerate(cards):
