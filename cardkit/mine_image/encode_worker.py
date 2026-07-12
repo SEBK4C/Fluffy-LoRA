@@ -64,7 +64,8 @@ def ship_and_encode(rig: Rig, task: dict) -> None:
     items = [json.loads(l) for l in open(task["items"])]
 
     # 1. CAS files needed by this chunk (incremental mirror per source)
-    lst = f"/tmp/fluffy-enc{rig.gpu}-files.txt"
+    #    (per-PID path: two workers may share a GPU — no shared tmp files)
+    lst = f"/tmp/fluffy-enc{rig.gpu}-{os.getpid()}-files.txt"
     with open(lst, "w") as f:
         for it in items:
             if it.get("image"):
