@@ -76,3 +76,29 @@ Opus-managed for the week, and synced to HF as updates land. KISS binding.
 All lanes' data cards posted → HDD readback gate on /pool-5tb → token-budget
 lane mix computed → instruction-set re-baseline (image lane) → **Sebastian's
 word** → fresh start, FL_STEPS re-sized from measured pace on the real mix.
+
+## 5. Scale-out contract — adding mining rigs (Sebastian, 2026-07-12)
+
+Maximum parallelism now; more machines later. The design that gives both:
+
+- **Work queue = directories, claims = atomic mkdir.** The task list lives at
+  `/pool-ssd/fluffy/queue/<lane>/<source>/<chunk>.json` (each chunk ≈ one
+  shard's worth of raw pairs). A worker claims a chunk by
+  `mkdir /pool-ssd/fluffy/queue/.claims/<chunk>__<hostname>` — mkdir is
+  atomic; success = yours, exists = someone else's. Finished chunks move
+  their state into the miner state files (§1). Stale claims (>2h no
+  progress) may be broken by the Opus manager only, ledgered.
+- **Workers are location-agnostic**: a worker needs (1) tailnet access,
+  (2) read access to its input chunk (rsync pull from PVE), (3) the encode
+  model (Qwen3-VL-2B, 4.3GB — rsync once), (4) push-back of finished
+  shards+sha to PVE. Everything over ssh/rsync — no shared-fs assumption.
+- **Adding a rig** = install uv + rsync the worker kit
+  (`cardkit/` + the miner's build script + model) + give it the claim dir
+  path + start N workers for its GPU/CPU count. Target: a new rig
+  contributes within ~30 min of getting a tailnet key. Miners MUST keep
+  their build scripts runnable standalone (args: --chunk file, --out dir)
+  to make this true — no orchestration logic inside the compute path.
+- **Parallelism now**: PVE CPU = extraction/gates/packing workers (6-10);
+  rig GPU0 + GPU1 = two independent encode workers; 3080Ti = text-teacher
+  bands + judge scoring. Every worker writes progress into the state files
+  so §1 restartability covers the whole fleet.
