@@ -288,7 +288,10 @@ def build(source: str, force: bool = False) -> None:
     negs_sim = np.zeros((n, K_TEXT), dtype=np.float32)
     negs_cnt = np.zeros(n, dtype=np.int64)
     blk = 2048
-    kw = K_TEXT + 24  # wider pool: disjointness/self filters eat candidates
+    # candidate pool width: label-disjointness (fsd50k) eats candidates
+    # voraciously — dense label overlap ("Music" et al) exhausted a top-32
+    # pool and left 32k/35.7k exposures with ZERO negatives (v1 histogram).
+    kw = min(n - 2, 2048) if label_sets is not None else K_TEXT + 24
     for s in range(0, n, blk):
         e = min(s + blk, n)
         sims = emb[s:e] @ emb.T
