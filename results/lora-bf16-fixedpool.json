@@ -1,0 +1,23 @@
+{
+  "contender": "lora-bf16-fixedpool",
+  "ckpt": "checkpoints/step-1449",
+  "batch": 16,
+  "maxlen": 512,
+  "pooling": "lastpos",
+  "results": {
+    "SciFact": {
+      "main_score": 0.00167,
+      "evaluation_time": 839.4995573339984
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.03,
+      "r5": 0.0897,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 140.2,
+      "texts_per_s": 32.09
+    }
+  },
+  "mteb_wall_s": 839.5
+}

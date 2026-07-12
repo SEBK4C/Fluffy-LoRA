@@ -1,0 +1,38 @@
+{
+  "contender": "lora-bf16",
+  "ckpt": "checkpoints/step-1449",
+  "batch": 16,
+  "maxlen": 512,
+  "results": {
+    "SciFact": {
+      "main_score": 0.0043,
+      "evaluation_time": 837.0114056380116
+    },
+    "NFCorpus": {
+      "main_score": 0.01008,
+      "evaluation_time": 601.9661610529874
+    },
+    "FiQA2018": {
+      "main_score": 0.0,
+      "evaluation_time": 8284.111732888996
+    },
+    "STSBenchmark": {
+      "main_score": 0.03384353529838415,
+      "evaluation_time": 21.422029270994244
+    },
+    "STS17": {
+      "main_score": 0.2948786666563735,
+      "evaluation_time": 3.804813965020003
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.017,
+      "r5": 0.049,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 140.2,
+      "texts_per_s": 32.09
+    }
+  },
+  "mteb_wall_s": 9748.3
+}

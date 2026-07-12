@@ -1,0 +1,35 @@
+{
+  "contender": "base-bf16-fixedpool",
+  "ckpt": null,
+  "batch": 16,
+  "maxlen": 512,
+  "pooling": "lastpos",
+  "results": {
+    "SciFact": {
+      "main_score": 0.00167,
+      "evaluation_time": 620.8011565270135
+    },
+    "NFCorpus": {
+      "main_score": 0.00926,
+      "evaluation_time": 440.96985481100273
+    },
+    "STSBenchmark": {
+      "main_score": 0.03485712767515232,
+      "evaluation_time": 15.520541508012684
+    },
+    "STS17": {
+      "main_score": 0.31459282817475037,
+      "evaluation_time": 3.447938604018418
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.014,
+      "r5": 0.0367,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 103.5,
+      "texts_per_s": 43.49
+    }
+  },
+  "mteb_wall_s": 1080.7
+}

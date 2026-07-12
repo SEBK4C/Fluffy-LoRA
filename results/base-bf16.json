@@ -1,0 +1,38 @@
+{
+  "contender": "base-bf16",
+  "ckpt": null,
+  "batch": 16,
+  "maxlen": 512,
+  "results": {
+    "SciFact": {
+      "main_score": 0.0,
+      "evaluation_time": 618.7658897269866
+    },
+    "NFCorpus": {
+      "main_score": 0.01256,
+      "evaluation_time": 440.4690458920086
+    },
+    "FiQA2018": {
+      "main_score": 0.0,
+      "evaluation_time": 6076.308042699995
+    },
+    "STSBenchmark": {
+      "main_score": 0.020992979039576188,
+      "evaluation_time": 15.465825808001682
+    },
+    "STS17": {
+      "main_score": 0.35669193844836566,
+      "evaluation_time": 3.311289142991882
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.0113,
+      "r5": 0.0277,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 103.6,
+      "texts_per_s": 43.46
+    }
+  },
+  "mteb_wall_s": 7154.3
+}

@@ -1,0 +1,14 @@
+{
+  "contender": "lora-bf16-1196",
+  "ckpt": "checkpoints/step-1196",
+  "batch": 16,
+  "maxlen": 512,
+  "pooling": "masksum",
+  "results": {
+    "SciFact": {
+      "main_score": 0.00144,
+      "evaluation_time": 839.7505165070179
+    }
+  },
+  "mteb_wall_s": 839.8
+}

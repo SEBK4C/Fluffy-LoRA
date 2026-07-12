@@ -1,0 +1,23 @@
+{
+  "contender": "base-nf4",
+  "ckpt": null,
+  "batch": 16,
+  "maxlen": 512,
+  "pooling": "masksum",
+  "results": {
+    "SciFact": {
+      "main_score": 0.00119,
+      "evaluation_time": 621.869004823995
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.0087,
+      "r5": 0.02,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 114.1,
+      "texts_per_s": 39.44
+    }
+  },
+  "mteb_wall_s": 621.9
+}

@@ -1,0 +1,38 @@
+{
+  "contender": "teacher-bf16",
+  "ckpt": null,
+  "batch": 16,
+  "maxlen": 512,
+  "results": {
+    "SciFact": {
+      "main_score": 0.78751,
+      "evaluation_time": 349.1148748220003
+    },
+    "NFCorpus": {
+      "main_score": 0.41406,
+      "evaluation_time": 248.32374802298727
+    },
+    "FiQA2018": {
+      "main_score": 0.61161,
+      "evaluation_time": 3340.697583347035
+    },
+    "STSBenchmark": {
+      "main_score": 0.9345406807859014,
+      "evaluation_time": 14.273595587990712
+    },
+    "STS17": {
+      "main_score": 0.9573749749322866,
+      "evaluation_time": 3.193571722978959
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.312,
+      "r5": 0.5727,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 76.2,
+      "texts_per_s": 59.06
+    }
+  },
+  "mteb_wall_s": 3955.6
+}

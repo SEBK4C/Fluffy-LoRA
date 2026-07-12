@@ -1,0 +1,31 @@
+{
+  "contender": "base-bf16-meanpool",
+  "ckpt": null,
+  "batch": 16,
+  "maxlen": 512,
+  "pooling": "mean",
+  "results": {
+    "SciFact": {
+      "main_score": 0.00144,
+      "evaluation_time": 615.8239603529801
+    },
+    "STSBenchmark": {
+      "main_score": 0.026740672729986547,
+      "evaluation_time": 15.428513960010605
+    },
+    "STS17": {
+      "main_score": 0.3419422583871084,
+      "evaluation_time": 3.4149463420326356
+    },
+    "G0": {
+      "task": "G0",
+      "r1": 0.021,
+      "r5": 0.0527,
+      "n_pool": 1500,
+      "n_queries": 3000,
+      "secs": 103.2,
+      "texts_per_s": 43.61
+    }
+  },
+  "mteb_wall_s": 634.7
+}
