@@ -67,15 +67,25 @@ def done_ids(pairs_path: str) -> set:
 
 def wav_cas_from_file(src_path: str) -> tuple | None:
     """Decode any audio file -> 16k mono s16 wav bytes -> CAS.
-    Returns (sha256, duration_s) or None if outside the duration caps."""
+    Returns (sha256, duration_s) or None if outside the duration caps.
+
+    NOTE: ffmpeg must write to a real FILE — on a pipe it cannot seek back
+    to patch the RIFF/data sizes and leaves 0xFFFFFFFF placeholders that
+    break every header-trusting reader downstream (found by the fsd50k
+    250-sample gate; repaired fleet-wide by mine_ta_fix_wav_headers.py)."""
+    tmp = os.path.join(RAW, f".conv-{os.getpid()}.wav")
     p = subprocess.run(
-        ["ffmpeg", "-nostdin", "-v", "error", "-i", src_path,
+        ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", src_path,
          "-ac", "1", "-ar", "16000", "-sample_fmt", "s16",
-         "-f", "wav", "pipe:1"],
+         "-bitexact", "-f", "wav", tmp],
         capture_output=True)
-    if p.returncode != 0 or len(p.stdout) < 1000:
+    if p.returncode != 0 or not os.path.exists(tmp):
         return None
-    data = p.stdout
+    with open(tmp, "rb") as f:
+        data = f.read()
+    os.unlink(tmp)
+    if len(data) < 1000:
+        return None
     n_samples = (len(data) - 44) / 2.0
     dur = n_samples / 16000.0
     if not (MIN_S <= dur <= MAX_S):
