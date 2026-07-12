@@ -11,6 +11,9 @@ N_CPU="${1:-6}"
 mkdir -p "$LOGS"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 
+# OPS §1 resume hygiene: release OUR OWN dead workers' claims first
+"$PY" "$HERE/clean_stale_claims.py"
+
 for i in $(seq 1 "$N_CPU"); do
   OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 MKL_NUM_THREADS=6 \
     nohup "$PY" "$HERE/cpu_worker.py" \
