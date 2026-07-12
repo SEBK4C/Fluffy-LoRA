@@ -81,9 +81,10 @@ def ship_and_encode(rig: Rig, task: dict) -> None:
 
     # 3. encode on the claimed GPU
     rig.run(
-        f"cd {base} && CUDA_VISIBLE_DEVICES={rig.gpu} {e['RIG_VENV']} "
+        f"cd {base} && CUDA_VISIBLE_DEVICES={rig.gpu} "
+        f"PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True {e['RIG_VENV']} "
         f"encode_items.py --items chunks/{name}.jsonl --out emb/{name}.npy "
-        f"--model {e['RIG_MODEL']} --media-root {cas_dst} "
+        f"--model {e['RIG_MODEL']} --media-root {cas_dst} --batch-image 32 "
         f">> {base}/logs/encode-gpu{rig.gpu}.log 2>&1")
 
     # 4. retrieve + verify
