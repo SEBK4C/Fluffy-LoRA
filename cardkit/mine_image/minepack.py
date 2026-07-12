@@ -72,19 +72,41 @@ def load_unit(source: str, subset: str):
     return root, stg, pairs, emb, idx
 
 
-def dedup_pages(pairs: list[dict], stats) -> list[dict]:
+def dedup_pages(pairs: list[dict], stats, source: str) -> list[dict]:
     """Cross-file dedup for page sources (extract runs per-file in parallel,
-    so global dedup happens here): unique (query-text-hash, page-sha)."""
-    sys.path.insert(0, os.path.dirname(HERE))
-    import cardlib
-    seen, out = set(), []
+    so global dedup happens here): unique (query-text-hash, page-sha).
+    VisRAG additionally dedups against ColPali's extracted pairs (both are
+    doc-QA distributions — quality bar §3.4 exact tier; the embedding-space
+    near-dup sweep runs source-wide at the end)."""
+    seen: set[tuple] = set()
+    if source == "visrag":
+        import cardlib
+        for pf in glob.glob(os.path.join(common.SRC_ROOT["colpali"],
+                                         "staging", "all", "pairs-*.jsonl")):
+            for line in open(pf):
+                q = json.loads(line)
+                seen.add((q["dedup_hash"], q.get("orig_sha256")))
+                seen.add((q["dedup_hash"], None))   # query-text-level dup
+        # VisRAG in-domain reuses InfoVQA/DocVQA/ChartQA questions — guard
+        # against the SAME question text already mined via MMEB's vqa cards
+        for sub in ("DocVQA", "InfographicsVQA", "ChartQA"):
+            pf = os.path.join(common.SRC_ROOT["mmeb"], "staging", sub,
+                              "pairs.jsonl")
+            if os.path.exists(pf):
+                for line in open(pf):
+                    q = json.loads(line)
+                    qtext = q["anchor"].get("text")
+                    if qtext:
+                        seen.add((cardlib.dedup_hash(qtext), None))
+        stats["cross_source_guard_keys"] = len(seen)
+    out = []
     for p in pairs:
-        key = (cardlib.dedup_hash(p["anchor_text"]),
-               p["anchor"].get("sha") or p["positive"].get("sha"))
-        if key in seen:
+        sha = p.get("orig_sha256") or p["anchor"].get("sha")
+        if (p["dedup_hash"], sha) in seen or (p["dedup_hash"], None) in seen:
             stats["drop_crossfile_dup"] += 1
             continue
-        seen.add(key)
+        seen.add((p["dedup_hash"], sha))
+        seen.add((p["dedup_hash"], None))
         out.append(p)
     return out
 
@@ -158,7 +180,7 @@ def main() -> None:
 
     stats = collections.Counter()
     if source != "mmeb":
-        pairs = dedup_pages(pairs, stats)
+        pairs = dedup_pages(pairs, stats, source)
     n = len(pairs)
     log("mine", f"{source}/{sub}: {n} pairs, kind={kind}, emb {emb.shape}")
 
