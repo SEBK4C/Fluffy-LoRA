@@ -170,19 +170,21 @@ def mine_pack(subset: str, force: bool = False) -> None:
     # ---- cards ----
     band_tag = f"topk-percpos-{PERCPOS}"
     lic = LICENSES.get(subset, "see kalm_subset_licenses.yaml")
-    origin_tag = (f"kalm/{subset}" if subset != "allnli"
-                  else "allnli/sentence-transformers")
+    # origin must be a top-level frozen-enum source (v1.1a additive
+    # extension adds kalm/allnli); the subset rides in native_id
+    origin_tag = "kalm" if subset != "allnli" else "allnli"
     cards = []
     for k, p in enumerate(pairs):
         ceil = round(float(PERCPOS * pos[k]), 4)
+        nid = f"{subset}:{p['qid']}"
         views = {
             "text": {"content": [{"type": "text", "text": p["query"]}],
                      "source": "real", "origin": origin_tag,
-                     "native_id": p["qid"]},
+                     "native_id": nid},
             "text-passage": {
                 "content": [{"type": "text", "text": p["passage"]}],
                 "source": "real", "origin": origin_tag,
-                "native_id": p["qid"]},
+                "native_id": nid},
         }
         negs = [{"card_id": pairs[j]["qid"], "view": "text-passage",
                  "sim": round(float(sm), 4), "miner": MINER,
@@ -193,7 +195,7 @@ def mine_pack(subset: str, force: bool = False) -> None:
             views["text-contra"] = {
                 "content": [{"type": "text", "text": p["contra"]}],
                 "source": "real", "origin": origin_tag,
-                "native_id": p["qid"]}
+                "native_id": nid}
             negs = [{"card_id": p["qid"], "view": "text-contra",
                      "sim": round(float(contra_sim[k]), 4),
                      "miner": "nli-contradiction",

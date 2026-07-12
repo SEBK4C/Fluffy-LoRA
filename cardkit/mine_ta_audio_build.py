@@ -166,7 +166,7 @@ def load_tts_v001():
             continue
         rows.append({"card_id": f"flf-{cid}",  # matches text-v001 ids
                      "native_id": cid, "text": txt,
-                     "view_obj": view, "origin": "v001-tts",
+                     "view_obj": view, "origin": "v001",
                      "speaker": (view.get("gen", {}) or {}).get("voice"),
                      "lang": "en", "duration_s": None,
                      "rights": {"tier": "commercial", "audit": "clear",

@@ -100,7 +100,7 @@
         "content": { "$ref": "#/$defs/contentArray" },
         "source": { "enum": ["real", "synthetic", "rendered", "tts", "genai", "captioned", "asr"] },
         "origin": {
-          "enum": ["v001", "mmeb", "colpali", "visrag", "librispeech", "mls", "fsd50k", "commonvoice", "laion-audio"]
+          "enum": ["v001", "mmeb", "colpali", "visrag", "librispeech", "mls", "fsd50k", "commonvoice", "laion-audio", "kalm", "allnli"]
         },
         "native_id": { "type": "string" },
         "gen": {

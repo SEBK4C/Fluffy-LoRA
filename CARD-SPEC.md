@@ -35,6 +35,18 @@ require a new version and a new pin in `cardkit/FREEZE.sha256`.
    image lanes now**; bulk **audio** unblocks when the Supertonic
    200-sample pilot passes (item 1).
 
+## v1.1a amendment (additive only, 2026-07-12 — PENDING ratification)
+
+**Origin-enum extension forced by the data-breadth pivot** (Sebastian's
+12:03Z order postdates the freeze; the frozen enum anticipated audio
+wave-2 sources but no broad-text sources). `views.*.origin` enum gains
+two values: `kalm`, `allnli`. Nothing else changes: all v1.0/v1.1 cards
+remain valid, all gates identical. Subset-level provenance rides in
+`native_id` (`<subset>:<qid>`), matching MINE-IMAGE's convention of
+top-level origins. New pin in `cardkit/FREEZE.sha256`. Posted to
+T9-STATUS for Opus-manager + Sebastian ratification; a veto only requires
+re-validating cards (provenance is recorded identically either way).
+
 Design goal: one card = one semantic anchor with renditions ("views") in all
 three modalities, stored **in the exact message format gemma-4's processor
 consumes** — so mining-time format and training-time format cannot drift.
