@@ -63,6 +63,8 @@ LICENSES = {
     "swim-ir-monolingual": "CC BY-SA 4.0",
     "codesearchnet": "MIT harness over permissive OSS",
     "csl": "Apache-2.0", "big_patent": "CC BY 4.0",
+    "allnli": "SNLI CC BY-SA 4.0 + MultiNLI (OANC/mixed, "
+              "see nyu-mll/multi_nli card)",
 }
 
 
@@ -78,7 +80,7 @@ def load_subset(subset: str):
         raise SystemExit(f"{subset}: no chunks in queue")
     if not os.path.exists(os.path.join(QDIR, f"EXTRACT-DONE-{subset}")):
         raise SystemExit(f"{subset}: extraction not complete")
-    pairs, eq, ep = [], [], []
+    pairs, eq, ep, ec = [], [], [], []
     task_type = None
     for c in chunks:
         cid = c[:-5]
@@ -90,11 +92,14 @@ def load_subset(subset: str):
         task_type = ch["task_type"]
         with np.load(npz) as z:
             q, p = z["q"].astype(np.float32), z["p"].astype(np.float32)
+            if "c" in z:
+                ec.append(z["c"].astype(np.float32))
         assert len(ch["pairs"]) == q.shape[0] == p.shape[0], f"{cid} drift"
         pairs.extend(ch["pairs"])
         eq.append(q)
         ep.append(p)
-    return pairs, np.vstack(eq), np.vstack(ep), task_type
+    emb_c = np.vstack(ec) if len(ec) == len(chunks) else None
+    return pairs, np.vstack(eq), np.vstack(ep), emb_c, task_type
 
 
 def mine_pack(subset: str, force: bool = False) -> None:
@@ -111,7 +116,7 @@ def mine_pack(subset: str, force: bool = False) -> None:
         log(f"{subset}: already packed — skip")
         return
     os.makedirs(shards_dir, exist_ok=True)
-    pairs, emb_q, emb_p, task_type = load_subset(subset)
+    pairs, emb_q, emb_p, emb_c, task_type = load_subset(subset)
     n0 = len(pairs)
     log(f"{subset}: loaded {n0} pairs, dim {emb_q.shape[1]}, "
         f"task_type {task_type}")
@@ -122,6 +127,8 @@ def mine_pack(subset: str, force: bool = False) -> None:
     idx_keep = np.flatnonzero(keep)
     pairs = [pairs[i] for i in idx_keep]
     emb_q, emb_p, pos = emb_q[idx_keep], emb_p[idx_keep], pos[idx_keep]
+    contra_sim = (np.einsum("ij,ij->i", emb_q, emb_c[idx_keep])
+                  if emb_c is not None else None)
     n = len(pairs)
     log(f"{subset}: judge-proxy decile filter: floor={floor:.4f}, "
         f"kept {n}/{n0}")
@@ -163,28 +170,39 @@ def mine_pack(subset: str, force: bool = False) -> None:
     # ---- cards ----
     band_tag = f"topk-percpos-{PERCPOS}"
     lic = LICENSES.get(subset, "see kalm_subset_licenses.yaml")
+    origin_tag = (f"kalm/{subset}" if subset != "allnli"
+                  else "allnli/sentence-transformers")
     cards = []
     for k, p in enumerate(pairs):
         ceil = round(float(PERCPOS * pos[k]), 4)
+        views = {
+            "text": {"content": [{"type": "text", "text": p["query"]}],
+                     "source": "real", "origin": origin_tag,
+                     "native_id": p["qid"]},
+            "text-passage": {
+                "content": [{"type": "text", "text": p["passage"]}],
+                "source": "real", "origin": origin_tag,
+                "native_id": p["qid"]},
+        }
+        negs = [{"card_id": pairs[j]["qid"], "view": "text-passage",
+                 "sim": round(float(sm), 4), "miner": MINER,
+                 "band_rule": f"{band_tag}:ceil={ceil}"}
+                for j, sm in zip(negs_idx[k][:negs_cnt[k]],
+                                 negs_sim[k][:negs_cnt[k]])]
+        if "contra" in p:  # NLI ground-truth hard negative, self-view
+            views["text-contra"] = {
+                "content": [{"type": "text", "text": p["contra"]}],
+                "source": "real", "origin": origin_tag,
+                "native_id": p["qid"]}
+            negs = [{"card_id": p["qid"], "view": "text-contra",
+                     "sim": round(float(contra_sim[k]), 4),
+                     "miner": "nli-contradiction",
+                     "band_rule": "ground-truth"}] + negs[:K_MAX - 1]
         cards.append({
             "card_id": p["qid"],
             "anchor_text": p["query"],
-            "views": {
-                "text": {"content": [{"type": "text", "text": p["query"]}],
-                         "source": "real", "origin": f"kalm/{subset}",
-                         "native_id": p["qid"]},
-                "text-passage": {
-                    "content": [{"type": "text", "text": p["passage"]}],
-                    "source": "real", "origin": f"kalm/{subset}",
-                    "native_id": p["qid"]},
-            },
-            "negatives": {
-                "text": [{"card_id": pairs[j]["qid"],
-                          "view": "text-passage",
-                          "sim": round(float(sm), 4), "miner": MINER,
-                          "band_rule": f"{band_tag}:ceil={ceil}"}
-                         for j, sm in zip(negs_idx[k][:negs_cnt[k]],
-                                          negs_sim[k][:negs_cnt[k]])]},
+            "views": views,
+            "negatives": {"text": negs},
             "rights": {"tier": "source_audit_required", "license": lic,
                        "audit": "pending", "redistribution_ok": False},
             "dedup": {"protocol": cardlib.DEDUP_PROTOCOL,
@@ -244,7 +262,7 @@ def mine_pack(subset: str, force: bool = False) -> None:
         exposures.append({
             "anchor": {"card": c["card_id"], "view": "text"},
             "positive": {"card": c["card_id"], "view": "text-passage"},
-            "negatives": [{"card": g["card_id"], "view": "text-passage"}
+            "negatives": [{"card": g["card_id"], "view": g["view"]}
                           for g in c["negatives"]["text"]],
             "lane": "text2text", "instruction": INSTRUCTION,
             "task_type": task_type,

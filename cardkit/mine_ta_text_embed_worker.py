@@ -51,9 +51,14 @@ def process(chunk_path: str, out_dir: str) -> None:
     emb_q = lib.embed([p["query"] for p in pairs], tag="text-embed")
     lib.touch_claim(cid)
     emb_p = lib.embed([p["passage"] for p in pairs], tag="text-embed")
+    arrays = {"q": emb_q.astype(np.float16), "p": emb_p.astype(np.float16)}
+    if all("contra" in p for p in pairs):  # NLI triplets: embed the
+        lib.touch_claim(cid)               # ground-truth contradiction too
+        arrays["c"] = lib.embed([p["contra"] for p in pairs],
+                                tag="text-embed").astype(np.float16)
     out = os.path.join(out_dir, cid + ".emb.npz")
     tmp = out + f".tmp.{os.getpid()}.npz"
-    np.savez(tmp, q=emb_q.astype(np.float16), p=emb_p.astype(np.float16))
+    np.savez(tmp, **arrays)
     os.replace(tmp, out)
     dt = time.time() - t0
     log(f"{cid}: embedded {len(pairs)} pairs in {dt:.0f}s "
