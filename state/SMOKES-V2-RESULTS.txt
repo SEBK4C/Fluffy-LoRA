@@ -1,0 +1,56 @@
+SMOKES-V2 RESULTS — trainer v2 swap gates, rig 2×4090, 2026-07-11/12 (UTC)
+Paths sanitized for the public repo: <BIG-SSD> = the rig's big SSD mount.
+Raw logs: <BIG-SSD>/fluffy/checkpoints-v2-smoke/{chain,a1,a4,a3,steptime,resume-a,resume-b,a6}.log
+Data: smoke shard = 290 exposures, 6 lanes (make_test_shard.py from golden+pilot
+cards + v001 slice); launchrate = the real 28-tar text-v001 set (224,474 exposures).
+
+A1 (image path, 1 batch, forward) — PASS 23:31Z
+  anchor emb (2, 3840), pos emb (2, 3840); full multimodal forward incl.
+  processor image path; peak mem 7.5 GiB.
+  NOTE: live text_config.hidden_size = 3840 (MERGE-RESEARCH §2B recorded 4096).
+  MRL rungs = [3840, 2048, 1024, 512, 256]; 2048 comparability rung intact.
+
+A4 (grad flow) — PASS 23:31Z
+  loss 1.5677 backward: 656 params w/ grad == 656 trainable == all LoRA
+  (328 lang-tower modules x A/B); towers: 0 trainable, 0 grads.
+  32,784,384 trainable / 11,992,514,560 total = 0.2734%.
+
+A3 (max per-device image batch, NF4+grad-ckpt, k=8, full step) — PASS 23:32Z
+  B= 2  8.3 GiB  1.9s     B= 8  11.5 GiB  7.4s     B=16  14.5 GiB  15.3s
+  B= 4 11.1 GiB  4.7s     B=10  12.1 GiB  9.4s
+  B= 6 11.6 GiB  6.4s     B=12  14.4 GiB 13.5s
+  RESULT: B=16 fits with 9.5 GiB headroom (search ceiling, no OOM hit).
+  Recommend FL_BATCH=8 for the 14-day run (headroom for audio-lane refresh).
+
+steptime (20 steps, world=1, B=4, ALL 6 lanes incl. audio+interleaved) — PASS 23:40Z
+  median 7.07 s/step; 3 audio-lane steps executed.
+  First attempt OOMed on lane text2audio at ENC_CHUNK=32 (32 audio negatives
+  x 758 soft tokens -> eager-attention transients). Fix: ENC_CHUNK default 16,
+  smokes use 8. Re-run clean, incl. the exact schedule step that OOMed.
+
+RESUME TEST (kill -9 at step 55, resume from step-50) — PASS 23:47-23:58Z
+  run A killed -9 mid-run at step 55 (lane audio2text, loss 0.6173, ema 3.9190).
+  run B: "RESUMED from step-50" with byte-identical cursors + loss_ema 4.3104.
+  Continuity (same deterministic lane schedule, same data, dropout differs):
+    step  lane        lossA   lossB   emaA    emaB
+    50    text2audio  2.5782  2.6468  4.2757  4.2771
+    51    text2image  1.3373  1.3064  4.2169  4.2177
+    52    text2text   0.0094  0.0100  4.1328  4.1335
+    53    text2text   0.2860  0.2455  4.0559  4.0558
+    54    text2text   0.5831  0.6164  3.9864  3.9870
+    55    audio2text  0.6173  0.7032  3.9190  3.9213
+  Cursor advance step-50 -> step-150: every lane advanced (epochs 0->1..3 on
+  the tiny smoke lanes). Rolling retention live-verified: {step-25 (12h-bucket),
+  step-100, step-125, step-150 (last 3)} — intermediates pruned.
+
+A6 (20-step DDP world=2, alternating lanes) — PASS 00:01Z
+  median 6.86 s/step at 8 exposures/step (B=4/rank, mixed 6-lane schedule),
+  both ranks training (18.5/17.7 GiB), flat LoRA-grad all-reduce.
+
+LAUNCHRATE (real launch config, real data) — 00:04Z
+  world=2, B=8, ACCUM=2 (32 exposures/step), lanes=text2text, 28 real tars:
+  median 5.57 s/step (n=15) -> 13-day horizon = 201,670 steps at pure text.
+  Launch value FL_STEPS=170000: pure-text pace finishes day ~11 fully annealed;
+  image/audio lanes joining at refreshes slow later days toward day 13.
+  (Failure mode inverted vs v1: schedule ALWAYS completes; slack banked for
+  §2I soup/eval. v1 could never anneal by construction — LEARNINGS-V1 §f.)
