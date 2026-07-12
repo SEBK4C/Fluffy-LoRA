@@ -100,6 +100,9 @@ def main() -> None:
                 continue
             tasks.append((r["card_id"], r["canonical_text"],
                           VOICES[len(tasks) % len(VOICES)]))
+    take = int(os.environ.get("TAKE", 0))
+    if take:
+        tasks = tasks[:take]  # front slice; a cloud job owns the rest
     workers = int(os.environ.get("WORKERS", 6))
     print(f"{len(tasks)} clips to generate, {workers} workers")
 
