@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["diffusers>=0.36", "torch", "transformers", "accelerate",
+# dependencies = ["diffusers>=0.39", "torch", "transformers", "accelerate",
 #                 "sentencepiece", "protobuf", "huggingface_hub", "pillow",
 #                 "safetensors"]
 # ///
@@ -49,6 +49,13 @@ if GEN == "flux":
     MODEL = "black-forest-labs/FLUX.1-schnell"
     pipe = FluxPipeline.from_pretrained(MODEL, torch_dtype=torch.bfloat16)
     STEPS, GUIDANCE = 4, 0.0
+elif GEN == "flux2-klein":
+    from diffusers import Flux2KleinPipeline
+
+    MODEL = "black-forest-labs/FLUX.2-klein-4B"
+    pipe = Flux2KleinPipeline.from_pretrained(MODEL,
+                                              torch_dtype=torch.bfloat16)
+    STEPS, GUIDANCE = 4, 1.0
 elif GEN == "sdxl-lightning":
     from diffusers import (EulerDiscreteScheduler, StableDiffusionXLPipeline,
                            UNet2DConditionModel)
@@ -95,9 +102,9 @@ for i in range(0, len(work), BATCH):
     chunk = work[i:i + BATCH]
     gens = [torch.Generator("cuda").manual_seed(START + i + j)
             for j in range(len(chunk))]
-    images = pipe([w["text"] for w in chunk], num_inference_steps=STEPS,
-                  guidance_scale=GUIDANCE, height=SIZE, width=SIZE,
-                  generator=gens).images
+    images = pipe(prompt=[w["text"] for w in chunk],
+                  num_inference_steps=STEPS, guidance_scale=GUIDANCE,
+                  height=SIZE, width=SIZE, generator=gens).images
     for j, (w, img) in enumerate(zip(chunk, images)):
         jb = io.BytesIO()
         img.save(jb, format="JPEG", quality=90)
