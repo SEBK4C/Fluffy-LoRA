@@ -48,8 +48,12 @@ class Rig:
                          "-o", "ControlPersist=600"]
 
     def run(self, cmd: str, timeout: int = 3600) -> None:
-        subprocess.run(["ssh", *self.ssh_opts, self.e["RIG_SSH"], cmd],
-                       check=True, timeout=timeout)
+        r = subprocess.run(["ssh", *self.ssh_opts, self.e["RIG_SSH"], cmd],
+                           capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0:
+            raise RuntimeError(
+                f"ssh rc={r.returncode}: {cmd[:120]} ... "
+                f"stderr: {(r.stderr or '')[-400:]}")
 
     def rsync(self, args: list[str], timeout: int = 3600) -> None:
         subprocess.run(["rsync", "-a", "--partial",
