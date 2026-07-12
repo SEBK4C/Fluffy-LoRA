@@ -35,7 +35,9 @@ RUN_TAG = os.environ.get("RUN_TAG", "smoke")
 GEN = os.environ.get("GEN", "flux")  # flux | sdxl-lightning
 
 api = HfApi()
-prompts_path = hf_hub_download(OUT_REPO, "prompts.jsonl", repo_type="dataset")
+prompts_path = hf_hub_download(OUT_REPO,
+                               os.environ.get("PROMPTS", "prompts.jsonl"),
+                               repo_type="dataset")
 prompts = [json.loads(l) for l in open(prompts_path) if l.strip()]
 work = prompts[START:START + COUNT]
 print(f"{len(work)} prompts [{START}:{START + COUNT}] "

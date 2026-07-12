@@ -10,7 +10,8 @@ two actions that are yours, then the inventory.
    logged in as SEBK4C and accept the terms (auto-gate, instant grant).
    Then say the word and I run:
    - the 1,856-prompt truncation re-run (~$0.50) — replaces the weak
-     CLIP-77-truncated SDXL pairs;
+     CLIP-77-truncated SDXL pairs. Pre-staged: `prompts_trunc.jsonl` is on
+     the dataset repo; the job takes `-e GEN=flux -e PROMPTS=prompts_trunc.jsonl`;
    - (optional) a full FLUX tranche for generator-diverse noisy pairs
      (~$7 for another 70k at measured throughput).
 2. **Swap review**: the 06:00Z decision is the orchestrator's lane —
