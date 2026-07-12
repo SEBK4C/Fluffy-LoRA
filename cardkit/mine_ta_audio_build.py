@@ -154,7 +154,7 @@ def load_tts_v001():
             v = json.loads(line)
             # LAST row per card_id wins (overlength-correction rows append)
             views[v["v001_card_id"]] = v["view"]
-    rows, n_bl = [], 0
+    rows, n_bl, n_dur = [], 0, 0
     for cid, view in sorted(views.items()):
         if task_of.get(cid, "") in bl_tasks:
             n_bl += 1
@@ -164,17 +164,28 @@ def load_tts_v001():
         txt = texts.get(cid, "")
         if not txt:
             continue
+        # duration gate: a handful of upstream views slipped the 30s cap
+        # (observed 30.1-31.8s) — re-check every clip here
+        sha = view["content"][0]["audio"][6:]
+        try:
+            info = cardlib.wav_info(lib.cas_path(V001_CAS_ROOT, sha))
+        except Exception:  # noqa: BLE001
+            continue
+        if info["duration_s"] > 30.0 or info["sr"] != 16000:
+            n_dur += 1
+            continue
         rows.append({"card_id": f"flf-{cid}",  # matches text-v001 ids
                      "native_id": cid, "text": txt,
                      "view_obj": view, "origin": "v001",
                      "speaker": (view.get("gen", {}) or {}).get("voice"),
-                     "lang": "en", "duration_s": None,
+                     "lang": "en",
+                     "duration_s": round(info["duration_s"], 2),
                      "rights": {"tier": "commercial", "audit": "clear",
                                 "license": "self-synthetic text + "
                                            "Supertonic-3/Kokoro TTS",
                                 "redistribution_ok": True}})
-    log(f"tts-v001: {len(rows)} joined views ({n_bl} G0-blacklisted "
-        f"cards excluded)")
+    log(f"tts-v001: {len(rows)} joined views ({n_bl} G0-blacklisted, "
+        f"{n_dur} over-30s/bad-sr excluded)")
     return rows
 
 
@@ -209,12 +220,37 @@ def build(source: str, force: bool = False) -> None:
     log(f"{source}: {n} rows, task_type {task_type}")
 
     # ---- teacher embeddings of the text side (slice-resumable) ----
+    # cache carries an ids sidecar; on row-set drift we realign by card_id
+    # (reuse survivors, embed only the new) instead of trusting positions
     emb_path = os.path.join(out_dir, "emb-text.npy")
+    ids_path = os.path.join(out_dir, "emb-ids.json")
+    cur_ids = [r["card_id"] for r in rows]
+    cache_ok = False
     if os.path.exists(emb_path):
-        emb = np.load(emb_path).astype(np.float32)
-        assert emb.shape[0] == n, "stale emb cache — rerun with --force"
-        log(f"{source}: text embeddings loaded from cache")
-    else:
+        old_ids = (json.load(open(ids_path))
+                   if os.path.exists(ids_path) else None)
+        cached = np.load(emb_path).astype(np.float32)
+        if old_ids == cur_ids and cached.shape[0] == n:
+            emb, cache_ok = cached, True
+            log(f"{source}: text embeddings loaded from cache")
+        elif old_ids and set(cur_ids) <= set(old_ids):
+            pos_of = {c: i for i, c in enumerate(old_ids)}
+            emb = cached[[pos_of[c] for c in cur_ids]]
+            cache_ok = True
+            log(f"{source}: cache realigned by card_id "
+                f"({len(old_ids) - n} rows dropped since caching)")
+            np.save(emb_path + f".tmp.{os.getpid()}.npy",
+                    emb.astype(np.float16))
+            os.replace(emb_path + f".tmp.{os.getpid()}.npy", emb_path)
+            with open(ids_path, "w") as f:
+                json.dump(cur_ids, f)
+        else:
+            log(f"{source}: emb cache unusable (id drift) — re-embedding")
+            import shutil
+            shutil.rmtree(os.path.join(out_dir, "emb-parts"),
+                          ignore_errors=True)  # parts share the bad align
+            os.unlink(emb_path)
+    if not cache_ok:
         parts_dir = os.path.join(out_dir, "emb-parts")
         os.makedirs(parts_dir, exist_ok=True)
         SLICE = 8192
@@ -239,6 +275,8 @@ def build(source: str, force: bool = False) -> None:
         emb = np.vstack(parts).astype(np.float32)
         np.save(emb_path + f".tmp.{os.getpid()}.npy", emb.astype(np.float16))
         os.replace(emb_path + f".tmp.{os.getpid()}.npy", emb_path)
+        with open(ids_path, "w") as f:
+            json.dump(cur_ids, f)
         log(f"{source}: embedded {n} texts (cache written)")
     lib.update_state(src_name, encoded=True, rows=n)
 
