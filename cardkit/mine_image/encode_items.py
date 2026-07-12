@@ -33,6 +33,10 @@ def main() -> None:
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--batch-text", type=int, default=256)
     ap.add_argument("--batch-image", type=int, default=64)
+    ap.add_argument("--max-dim", type=int, default=1536,
+                    help="cap image max dimension fed to the teacher "
+                    "(native-res charts/pages OOM the dynamic-res vision "
+                    "tower; photos are unaffected)")
     args = ap.parse_args()
 
     items = [json.loads(l) for l in open(args.items)]
@@ -52,12 +56,23 @@ def main() -> None:
     for i, it in enumerate(items):
         groups[it["kind"]].append(i)
 
+    from PIL import Image
+
+    def load_img(sha: str):
+        im = Image.open(cas(args.media_root, sha)).convert("RGB")
+        w, h = im.size
+        if max(w, h) > args.max_dim:
+            sc = args.max_dim / max(w, h)
+            im = im.resize((max(1, round(w * sc)), max(1, round(h * sc))),
+                           Image.LANCZOS)
+        return im
+
     def payload(it: dict):
         if it["kind"] == "text":
             return it["text"]
         if it["kind"] == "image":
-            return {"image": cas(args.media_root, it["image"])}
-        return {"image": cas(args.media_root, it["image"]), "text": it["text"]}
+            return {"image": load_img(it["image"])}
+        return {"image": load_img(it["image"]), "text": it["text"]}
 
     def encode_batch(batch: list[int]) -> None:
         """CUDA-OOM-resilient (large doc pages): halve batch and recurse."""
@@ -92,7 +107,7 @@ def main() -> None:
     os.rename(tmp, args.out)
     h = hashlib.sha256(open(args.out, "rb").read()).hexdigest()
     with open(args.out + ".done", "w") as f:
-        json.dump({"n": len(items), "sha256": h,
+        json.dump({"n": len(items), "sha256": h, "max_dim": args.max_dim,
                    "elapsed_s": round(time.time() - t0, 1)}, f)
     print(f"[{time.time()-t0:6.1f}s] DONE {args.out} sha={h[:16]}", flush=True)
 
