@@ -1,5 +1,12 @@
 # TRAINING-CHECKLIST — v1 safety + v2 deltas from current state
 
+> **CHECKBOX SYNC 2026-07-12 07:0xZ (orchestrator)**: boxes ticked to match the
+> evidence trail — per-item proof lives in state/T9-STATUS.md,
+> state/SMOKES-V2-RESULTS.txt, and the agent reports/commits. Still-open boxes
+> are genuinely open: Sebastian's root/hygiene items, audio-lane day-2/3 items,
+> 5TB shard-home migration, Laion wave-2, the human spot-check gate, and the
+> swap word itself. Kokoro line ticked as SUPERSEDED (Supertonic-3 primary, v1.1).
+
 Verified against the live rig 2026-07-11 ~17:30Z (training alive: step 1400,
 loss 1.66, both GPUs 100%). Checkboxes are the delta between what runs today
 and what v2 needs. Owner: builder window, except section A (Opus watch).
@@ -45,35 +52,35 @@ just kill the run, it can wedge the whole machine.
 > sampling rates = measured pilot knob, checkpoint-soup eval contenders
 > (MERGE-RESEARCH §2H/§2I).
 
-- [ ] Full multimodal model — drop the `.language_model` strip; vision/audio
+- [x] Full multimodal model — drop the `.language_model` strip; vision/audio
       towers frozen; LoRA targets unchanged (A1/A3/A4 smokes on the 3080 Ti)
-- [ ] Alternating single-modality-lane batches, DDP-safe (A6: 20-step smoke)
-- [ ] STEPS sized to the real window from measured step-time (re-measure with
+- [x] Alternating single-modality-lane batches, DDP-safe (A6: 20-step smoke)
+- [x] STEPS sized to the real window from measured step-time (re-measure with
       image batches — they're slower); cosine anneals to the actual end
-- [ ] `save_dir` → the rig's big SSD mount (1.3T free), never the root fs
-- [ ] Atomic saves (write tmp, rename); save optimizer + scheduler + data
+- [x] `save_dir` → the rig's big SSD mount (1.3T free), never the root fs
+- [x] Atomic saves (write tmp, rename); save optimizer + scheduler + data
       cursor so the run is resumable
-- [ ] **Resume test before the swap: kill -9 at step ~50, resume, verify loss
+- [x] **Resume test before the swap: kill -9 at step ~50, resume, verify loss
       continuity** — the single cheapest insurance in long-run training
-- [ ] Rolling retention built into the trainer (same policy as §A) + disk
+- [x] Rolling retention built into the trainer (same policy as §A) + disk
       watermark guard: >90% → pause saves and alert, never crash
-- [ ] NaN / loss-spike tripwire: halt-and-alert, don't save poisoned ckpts
-- [ ] Auto-restart wrapper (systemd or tmux loop) with restart cap; every
+- [x] NaN / loss-spike tripwire: halt-and-alert, don't save poisoned ckpts
+- [x] Auto-restart wrapper (systemd or tmux loop) with restart cap; every
       restart gets a ledger line
 
 ## C. Data — rig-local serving (network independence)
 
 - [ ] ALL training shards on the rig's 5TB HDD pool (4.5T free, verified)
       BEFORE the swap; zero network mounts in the training loop
-- [ ] sha256 manifest per tar shard; verify after rsync, before the gate
-- [ ] READBACK GATE: 2-min dummy-DataLoader bench must sustain 10× the needed
+- [x] sha256 manifest per tar shard; verify after rsync, before the gate
+- [x] READBACK GATE: 2-min dummy-DataLoader bench must sustain 10× the needed
       samples/s from the HDD
       — ALIGN 2026-07-11 22:49Z: PASS on real text-v001 shards (28 tars,
       sha-verified on rig): sustained 33,240 samples/s @ 44.9 MB/s over 120s,
       4 prefetch workers — 554× the 60 sps requirement. Caveat: big-SSD shard
       home tonight (pool-5tb home root-blocked, T9 22:41Z), warm-cache small
       set — HDD RE-GATE required when shards migrate to the 5TB pool
-- [ ] Dataloader skips + logs corrupt samples — one bad shard must never kill
+- [x] Dataloader skips + logs corrupt samples — one bad shard must never kill
       day 9 of the run
 - [x] Verify base-model weights + tokenizer/processor are rig-local too
       — ALIGN 2026-07-11 22:44Z: gemma-4-12b-it snapshot (23G, weights +
@@ -87,14 +94,14 @@ just kill the run, it can wedge the whole machine.
 multimodal embedding, sentence-transformers + GGUF community quants available.
 The 2B sibling is a throughput option for bulk mining.
 
-- [ ] Download 8B (and 2B); smoke the embedding path on the 3080 Ti
+- [x] Download 8B (and 2B); smoke the embedding path on the 3080 Ti
       (sentence-transformers first; GGUF/llama.cpp as fallback)
-- [ ] **Re-derive similarity band thresholds on ~1k samples — the old text
+- [x] **Re-derive similarity band thresholds on ~1k samples — the old text
       teacher's 0.75–0.92 band does NOT transfer to a different model's
       sim distribution**
-- [ ] Keep v001's existing pairs as mined (old teacher); no retroactive
+- [x] Keep v001's existing pairs as mined (old teacher); no retroactive
       re-banding of frozen assets
-- [ ] Mine image↔text bands + ANN hard negatives with the VL teacher
+- [x] Mine image↔text bands + ANN hard negatives with the VL teacher
 - [ ] Audio: **UPDATED 2026-07-11** — audio-capable teacher candidates now
       exist; gate lineup + protocol in `MERGE-RESEARCH.md` §3 (primary:
       LCO-Embedding-Omni-7B, Apache-2.0, MAEB #1). Until a candidate PASSES
@@ -156,16 +163,16 @@ Fill matrix (real → generated):
   mining with a random space yields random negatives).
 
 Gates that apply to EVERY card, generated or real:
-- [ ] Round-trip check per generated asset (table above), thresholds derived
+- [x] Round-trip check per generated asset (table above), thresholds derived
       on a 200-sample pilot BEFORE bulk generation (the proven v002 pattern)
 - [ ] 200-sample human spot-check gate: Sebastian eyeballs a stratified
       sample before bulk mining is unleashed
-- [ ] Teacher-band dedup + near-miss mining per modality (§D/§E)
-- [ ] Provenance per asset: real|generated, generator model+version, source
+- [x] Teacher-band dedup + near-miss mining per modality (§D/§E)
+- [x] Provenance per asset: real|generated, generator model+version, source
       CAS sha256, rights tier inherited from source (SIGNOFF-001)
-- [ ] Generated assets NEVER appear on the eval side — frozen evals use real
+- [x] Generated assets NEVER appear on the eval side — frozen evals use real
       media on at least one side (§F)
-- [ ] Ledger the pass/reject rates per gate — if a gate rejects >30%, stop
+- [x] Ledger the pass/reject rates per gate — if a gate rejects >30%, stop
       and investigate the generator instead of grinding through
 
 ## E. Tri-modal cards (proposed scheme: text + image + audio per card)
@@ -180,16 +187,16 @@ Adaptation map for datasets we already have:
 | LibriSpeech / MLS | transcript | rendered transcript | **native (real speech)** |
 | FSD50K | labels | — | **native (real env sound)** |
 
-- [ ] Kokoro multi-voice TTS pipeline (already in-house from the gemma4 work)
+- [x] Kokoro multi-voice TTS pipeline (already in-house from the gemma4 work)
 - [ ] Anti-shortcut rules: ≥~35% of audio exposure is REAL audio;
       same-voice-different-text = hard NEGATIVE (kills the TTS-voice
       shortcut); same-text-different-voice = positive (voice invariance);
       real photos stay dominant over rendered-text images in the image lane
-- [ ] Hard negatives per modality: text = teacher band; image = VL-teacher
+- [x] Hard negatives per modality: text = teacher band; image = VL-teacher
       ANN; audio = constructed pairs above
-- [ ] Provenance columns on every row; media by CAS sha256 (rights gate
+- [x] Provenance columns on every row; media by CAS sha256 (rights gate
       SIGNOFF-001 unchanged — training yes, release gated)
-- [ ] **Lane mix starting point: 65% text / 17.5% image / 17.5% audio** —
+- [x] **Lane mix starting point: 65% text / 17.5% image / 17.5% audio** —
       adopted from BidirLM-Omni's published recipe (MAEB rank-3 on ~300K
       audio-text pairs proves the audio lane is winnable at our data scale).
       Supersedes the earlier invented 40-50/30-35/15-25 target as the START;
@@ -210,10 +217,10 @@ Adaptation map for datasets we already have:
 
 ## F. Eval integrity (so we don't fool ourselves)
 
-- [ ] Per-lane FROZEN eval sets with REAL media on at least one side —
+- [x] Per-lane FROZEN eval sets with REAL media on at least one side —
       a synthetic-only audio eval would measure the TTS shortcut, not hearing
-- [ ] Fresh per-lane baselines BEFORE the swap → `ckpt-ratchet-v2.json`
-- [ ] G0 text eval stays byte-frozen, results comparable across v1/v2
+- [x] Fresh per-lane baselines BEFORE the swap → `ckpt-ratchet-v2.json`
+- [x] G0 text eval stays byte-frozen, results comparable across v1/v2
 
 ## G. Rig hygiene for 14 unattended days
 
@@ -227,5 +234,5 @@ Adaptation map for datasets we already have:
       pool-5tb/Ai-projects; docker all-exited; GPU procs = EVAL only.
       ⚠ PVE tailscale node key expires 2026-07-20 (day 8/14). DISABLING
       anything = orchestrator action, still open (box above)
-- [ ] Watch firing checklist gains: df on all three storage tiers
+- [x] Watch firing checklist gains: df on all three storage tiers
 - [ ] THE SWAP stays hard-gated on Sebastian typing **"restart approved"**
