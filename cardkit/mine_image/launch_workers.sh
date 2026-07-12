@@ -14,6 +14,16 @@ STAMP="$(date -u +%Y%m%d-%H%M%S)"
 # OPS §1 resume hygiene: release OUR OWN dead workers' claims first
 "$PY" "$HERE/clean_stale_claims.py"
 
+# purge ORPHANED rig-side encode children (killing a PVE worker leaves its
+# remote encode holding GPU VRAM — learned 2026-07-12). Whole-fleet launch
+# only: never run this while other encode workers are alive.
+if ! pgrep -f "encode_worke[r].py --gpu" > /dev/null; then
+  # shellcheck disable=SC1091
+  source /pool-ssd/fluffy/rig.env
+  ssh -i "$RIG_KEY" -o BatchMode=yes -o ConnectTimeout=10 "$RIG_SSH" \
+    'pkill -9 -f "encode_item[s].py" || true' || true
+fi
+
 for i in $(seq 1 "$N_CPU"); do
   OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 MKL_NUM_THREADS=6 \
     nohup "$PY" "$HERE/cpu_worker.py" \
