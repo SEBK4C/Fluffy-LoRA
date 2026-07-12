@@ -4,6 +4,16 @@ A fresh window needs ONLY: this file + MINE-TEXTAUDIO-BRIEF.md +
 MINING-OPS.md + T9-STATUS tail + `/pool-ssd/fluffy/state/mine-textaudio.json`.
 All compute runs detached (nohup); nothing lives in a chat session.
 
+## FIRST CHECK on resume: is the autochain alive?
+`pgrep -f mine_ta_autochain` + `tail /pool-ssd/fluffy/logs/mine-ta-autochain.log`.
+The autochain (cardkit/mine_ta_autochain.sh) runs the WHOLE remaining tail
+unattended: per-source mine_pack (text) -> datacard -> rig+sha -> HF, with
+.staged/.FAILED markers under each source dir and T9 lines per event. If
+it is running and no .FAILED markers exist, there is nothing to do but
+wait. If dead: relaunch it (idempotent) + relaunch any dead embed workers
+/ audio builds per the stage table below. .FAILED = gate/stage stopped on
+purpose — investigate that source's log before anything else.
+
 ## Fixed facts
 - Teacher: `http://127.0.0.1:9020` (llama-server, Qwen3-Emb-8B Q8, 3080Ti).
   NEVER leave it down; miners wait through downtime (mine_ta_lib.embed).
