@@ -178,6 +178,19 @@ def main() -> None:
     import validate_card
     import shards_v2
 
+    def stop_source(reason: str):
+        """Durable per-source .FAILED marker so mine_img_autochain.sh skips
+        this source + posts the stop line (brief hard rule: >30% reject =
+        .FAILED + stop that source). minepack runs headless under cpu_worker,
+        so the marker is how the stop reaches the autochain/T9."""
+        try:
+            with open(os.path.join(root, ".FAILED"), "a") as f:
+                f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} "
+                        f"{source}/{sub}: {reason}\n")
+        except OSError:
+            pass
+        raise SystemExit(f"{source}/{sub}: {reason}")
+
     stats = collections.Counter()
     if source != "mmeb":
         pairs = dedup_pages(pairs, stats, source)
@@ -275,8 +288,7 @@ def main() -> None:
     print(r.stdout, end="")
     if r.returncode != 0:
         print(r.stderr, end="")
-        raise SystemExit(f"{source}/{sub}: sample gate FAILED — stop + post "
-                         "to T9 per brief (>30% reject rule)")
+        stop_source("sample gate FAILED (>30% reject rule) — stop + post to T9")
     log("mine", "sample gate: 250 cards via validate_card.py CLI — PASS")
 
     schema = json.load(open(os.path.join(os.path.dirname(HERE),
@@ -284,7 +296,7 @@ def main() -> None:
     ids = [c["card_id"] for c in cards]
     dupes = [i for i, c in collections.Counter(ids).items() if c > 1]
     if dupes:
-        raise SystemExit(f"duplicate card_ids: {dupes[:10]}")
+        stop_source(f"duplicate card_ids: {dupes[:10]}")
     known_ids = set(ids)
     errs = []
     for i, c in enumerate(cards):
@@ -294,7 +306,7 @@ def main() -> None:
     if errs:
         for e in errs[:20]:
             print(f"  {e}")
-        raise SystemExit(f"bulk validation FAILED: {len(errs)} error(s)")
+        stop_source(f"bulk validation FAILED: {len(errs)} error(s)")
     log("mine", f"bulk validate: {n}/{n} cards PASS")
 
     cards_path = os.path.join(stg, "cards-v2.jsonl")
