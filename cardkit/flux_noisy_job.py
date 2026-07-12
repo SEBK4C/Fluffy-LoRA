@@ -32,7 +32,9 @@ SIZE = int(os.environ.get("SIZE", 512))
 BATCH = int(os.environ.get("BATCH", 8))
 SHARD = int(os.environ.get("SHARD", 2000))
 RUN_TAG = os.environ.get("RUN_TAG", "smoke")
-GEN = os.environ.get("GEN", "flux")  # flux | sdxl-lightning
+GEN = os.environ.get("GEN", "flux")  # flux | flux2-klein | sdxl-lightning
+PREFIX = os.environ.get("PREFIX", "")  # generation-side conditioning only;
+# the stored pair text stays the raw prompt, prefix recorded in meta
 
 api = HfApi()
 prompts_path = hf_hub_download(OUT_REPO,
@@ -102,7 +104,7 @@ for i in range(0, len(work), BATCH):
     chunk = work[i:i + BATCH]
     gens = [torch.Generator("cuda").manual_seed(START + i + j)
             for j in range(len(chunk))]
-    images = pipe(prompt=[w["text"] for w in chunk],
+    images = pipe(prompt=[PREFIX + w["text"] for w in chunk],
                   num_inference_steps=STEPS, guidance_scale=GUIDANCE,
                   height=SIZE, width=SIZE, generator=gens).images
     for j, (w, img) in enumerate(zip(chunk, images)):
@@ -111,7 +113,8 @@ for i in range(0, len(work), BATCH):
         meta = {"pid": w["pid"], "text": w["text"], "src": w["src"],
                 "seed": START + i + j, "model": MODEL, "steps": STEPS,
                 "size": SIZE, "tier": "noisy",
-                "gen": {"model": GEN, "version": "hf-jobs"}}
+                "gen": {"model": GEN, "version": "hf-jobs",
+                        **({"prompt_prefix": PREFIX} if PREFIX else {})}}
         for ext, data in (("jpg", jb.getvalue()),
                           ("json", json.dumps(meta).encode())):
             ti = tarfile.TarInfo(f"{w['pid']}.{ext}")
