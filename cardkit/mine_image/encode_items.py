@@ -33,7 +33,7 @@ def main() -> None:
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--batch-text", type=int, default=256)
     ap.add_argument("--batch-image", type=int, default=64)
-    ap.add_argument("--max-dim", type=int, default=1536,
+    ap.add_argument("--max-dim", type=int, default=1024,
                     help="cap image max dimension fed to the teacher "
                     "(native-res charts/pages OOM the dynamic-res vision "
                     "tower; photos are unaffected)")
