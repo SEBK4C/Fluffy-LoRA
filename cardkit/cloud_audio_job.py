@@ -1,7 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["supertonic", "faster-whisper", "jiwer", "soxr", "numpy",
-#                 "soundfile", "huggingface_hub"]
+#                 "soundfile", "huggingface_hub",
+#                 "nvidia-cublas-cu12", "nvidia-cudnn-cu12"]
 # ///
 """cloud_audio_job.py — Supertonic synth + GPU-whisper WER on HF Jobs.
 
@@ -37,6 +38,22 @@ tasks_path = hf_hub_download(OUT_REPO, TASKS, repo_type="dataset")
 tasks = [json.loads(l) for l in open(tasks_path) if l.strip()]
 work = tasks[START:START + COUNT]
 print(f"{len(work)} clips [{START}:{START + COUNT}]")
+
+# ctranslate2 dlopens cuBLAS/cuDNN lazily; the pip nvidia-* wheels aren't on
+# the loader path in this container — preload them into the process.
+import ctypes
+import glob
+
+import nvidia.cublas.lib
+import nvidia.cudnn.lib
+
+for pkg in (nvidia.cublas.lib, nvidia.cudnn.lib):
+    for d in pkg.__path__:  # namespace package: __file__ is None
+        for so in sorted(glob.glob(os.path.join(d, "*.so*"))):
+            try:
+                ctypes.CDLL(so, mode=ctypes.RTLD_GLOBAL)
+            except OSError:
+                pass
 
 from faster_whisper import WhisperModel
 from supertonic import TTS
