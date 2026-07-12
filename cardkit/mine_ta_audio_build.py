@@ -48,9 +48,16 @@ ROOT = "/pool-ssd/fluffy/mine-ta"
 AUDIO_ROOT = os.path.join(ROOT, "audio")
 SEED = 20260712
 K_TEXT = 8
-K_AUDIO = 2
+K_AUDIO = 1
 PERCPOS = 0.95
 SHARD_SIZE = 8192
+# Media are stored PER SAMPLE in shards_v2 tars (no cross-sample dedup),
+# so every t2a exposure ships 1+K_AUDIO wav copies. Full both-lane packing
+# would be ~208 GB for LibriSpeech alone. Design: audio2text for ALL cards
+# (1 wav each = the bulk alignment signal), text2audio for a deterministic
+# 20% subset carrying the same-voice-diff-text anti-shortcut negative.
+# In-batch negatives cover the rest (k is a ceiling, decision D).
+T2A_FRAC = 0.20
 INSTRUCTION = "Retrieve the matching description."  # frozen stage-1 string
 V001_CARDS = "/pool-ssd/synth-forge/corpus/manifests/accepted-v001.jsonl"
 V001_BLACKLIST = "/root/SYNTH-FORGE/state/eval-task-blacklist.json"
@@ -346,13 +353,18 @@ def build(source: str, force: bool = False) -> None:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
     lib.update_state(src_name, gated=True, cards=n)
 
+    # ---- t2a subset selection (deterministic) ----
+    def t2a_selected(card_id: str) -> bool:
+        h = hashlib.sha1(f"{SEED}:t2a:{card_id}".encode()).hexdigest()
+        return int(h, 16) % 100 < int(T2A_FRAC * 100)
+
     # ---- shard assignment: speaker-grouped (speech) / seeded (fsd) ----
     idx_by_speaker: dict = collections.defaultdict(list)
     for k, r in enumerate(rows):
         idx_by_speaker[r.get("speaker") or f"solo-{k}"].append(k)
     speakers = sorted(idx_by_speaker)
     random.Random(SEED).shuffle(speakers)
-    cards_per_shard = SHARD_SIZE // 2  # 2 exposures per card
+    cards_per_shard = int(SHARD_SIZE / (1 + T2A_FRAC))
     shard_of = {}
     cur, cur_shard = 0, 0
     for spk in speakers:
@@ -375,6 +387,8 @@ def build(source: str, force: bool = False) -> None:
         m_emb = emb[members]
         m_index = {k: i for i, k in enumerate(members)}
         for k in members:
+            if not t2a_selected(rows[k]["card_id"]):
+                continue  # audio negatives only needed for t2a exposures
             spk = rows[k].get("speaker") or f"solo-{k}"
             same = [j for j in by_spk[spk] if j != k]
             picks = []
@@ -415,6 +429,7 @@ def build(source: str, force: bool = False) -> None:
                 for j, sm, miner in audio_negs.get(k, [])]
 
     exposures_by_shard: dict = collections.defaultdict(list)
+    n_t2a = 0
     for k, c in enumerate(cards):
         sh = shard_of[k]
         meta = {"task_type": task_type,
@@ -428,11 +443,13 @@ def build(source: str, force: bool = False) -> None:
                            "band_rule": g["band_rule"]}
                           for g in c["negatives"]["text"]],
             "lane": "audio2text", "instruction": INSTRUCTION, **meta})
-        exposures_by_shard[sh].append({
-            "anchor": {"card": c["card_id"], "view": "text"},
-            "positive": {"card": c["card_id"], "view": "audio"},
-            "negatives": a_negs(k),
-            "lane": "text2audio", "instruction": INSTRUCTION, **meta})
+        if t2a_selected(c["card_id"]):
+            n_t2a += 1
+            exposures_by_shard[sh].append({
+                "anchor": {"card": c["card_id"], "view": "text"},
+                "positive": {"card": c["card_id"], "view": "audio"},
+                "negatives": a_negs(k),
+                "lane": "text2audio", "instruction": INSTRUCTION, **meta})
 
     # ---- pack ----
     cards_by_id = {c["card_id"]: c for c in cards}
@@ -520,7 +537,8 @@ def build(source: str, force: bool = False) -> None:
     report = {
         "source": src_name, "task_type": task_type, "cards": n,
         "exposures": total_exp,
-        "lanes": {"audio2text": n, "text2audio": n},
+        "lanes": {"audio2text": n, "text2audio": n_t2a},
+        "t2a_frac": T2A_FRAC,
         "audio_kind": "tts" if source == "tts-v001" else "real",
         "langs": dict(langs),
         "negatives_histogram": {str(k): v for k, v
