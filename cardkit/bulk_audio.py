@@ -48,6 +48,11 @@ def process(task: tuple[str, str, str]) -> dict:
         wav, _ = _ctx["tts"].synthesize(text, voice_style=_ctx["styles"][voice])
         wav16 = cardlib.to_wav16k(np.asarray(wav).squeeze(),
                                   _ctx["tts"].sample_rate)
+        dur = (len(wav16) - 44) / 2 / cardlib.SR
+        if dur > cardlib.MAX_AUDIO_S:
+            # spec hard cap: >750 audio tokens breaks the tower budget
+            return {"card_id": card_id, "voice": voice, "pass": False,
+                    "correction": "overlength", "duration_s": round(dur, 1)}
         sha = cardlib.cas_put(wav16)
         segs, _ = _ctx["whisper"].transcribe(cardlib.cas_path(sha))
         hyp = " ".join(s.text for s in segs).strip()
@@ -80,9 +85,11 @@ def main() -> None:
     if os.path.exists(out_path):
         with open(out_path) as f:
             # error rows (teacher outage, transient failures) are NOT done —
-            # they retry on the next run; only rows that reached CAS count
+            # they retry on the next run. Rows that reached CAS are done;
+            # overlength verdicts are deterministic, retrying is a loop.
             done = {r["card_id"] for r in map(json.loads,
-                    (l for l in f if l.strip())) if "cas" in r}
+                    (l for l in f if l.strip()))
+                    if "cas" in r or r.get("correction") == "overlength"}
         print(f"resume: {len(done)} already processed (errors will retry)")
 
     tasks = []
