@@ -52,6 +52,21 @@ operator (Opus, fresh window) bootstraps from THIS file + state/T9-STATUS.md
   tripwire and hour-36 kill criterion are the guards. Watch the first
   hours after warmup crosses ~5e-5 with extra care.
 
+## MERGE-RESEARCH items owned by the watch/refresh (§ refs = MERGE-RESEARCH.md)
+
+- **§2I checkpoint-soup contenders**: at each 6h eval, when ≥2 recent ckpts
+  exist, also evaluate a uniform soup of the last 2–3 adapters as an extra
+  contender (cheap: average adapter weights). Soups are eval-only unless one
+  KEEPs on the ratchet — then ledger it prominently.
+- **§3 LCO teacher gate**: BEFORE the audio refresh, run the ratified gate on
+  LCO-Embedding-Omni-7B (Apache-2, sentence-transformers, no remote code):
+  our G0 + 200-sample image/audio probes vs Qwen3-VL where they overlap;
+  PASS → audio-lane teacher; FAIL → constructed negatives stand. Deep-read
+  the LCO paper during the gate (rank/data/attention mode — §5 open Qs).
+- **§6 IMG-H1 inherited-capacity probe** (zero training): base + current
+  adapter on 3–4 MIEB-lite tasks vs LCO/GME published numbers, eval-station
+  idle time. Measures capability-transfer, feeds the paper.
+
 ## Known residuals + morning list (Sebastian, on wake)
 
 1. Type **"restart approved"** → orchestrator (or you) launches the staged
